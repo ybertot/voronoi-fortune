@@ -10,6 +10,8 @@ Unset Printing Implicit Defensive.
 
 Section ab1.
 
+(* The following variables are used to make the code independent of
+  mathematical components. *)
 Variables (R : Type) (one zero : R)
   (add mul : R -> R -> R) (opp inv sqrtr : R -> R).
 Variables (eq ler ltr : R -> R -> bool) (natr_mul exp : R -> nat -> R).
@@ -591,8 +593,6 @@ Definition Qsqrt (a : Q) : Q:=
   let d'' := match (d' / g)%Z with Zpos d'' => d'' | _ => xH end in
     ((n' / g) # d'').
 
-Compute Qsqrt (3 # 2)%Q.
-
 Definition Qexp (a : Q) (n : nat) :=
   Qpower a (Z.of_nat n).
 
@@ -608,12 +608,35 @@ Extract Inductive list => "list" [ "[]" "(::)" ].
 
 Extraction "fortune.ml" main'.
 
+(* This produces files fortune.ml and fortune.mli 
+   These can be used with a stub file that is also provided in
+   the sources: file runner.ml.
+   To execute this code outside Coq you can:
+     ocamlc fortune.mli
+     ocamlc fortune.ml
+     ocamlc -o runner fortune.cmo runner.ml
+   this produces a file runner that you can execute
+   Alternatively, you can also load the functions in an ocaml interpreter:
+     ocamlc fortune.mli
+     ocamlc fortune.ml
+     ocaml fortune.cmo
+        #use "runner.ml";;
+
+   You are then in an interpreter, where you can call the functions one by
+   one for tests.  Beware they they may have changed names, because Coq names
+   are not always acceptable for ocaml functions and constructors.  *)
+
+(* Alternatively, you can run the functions directly inside Coq, as follows. *)
+
 Definition small_data := [:: ((-23)#1, (-15)#1)].
 
 Definition result :=  main' [:: ((-23)#1, (-15)#1)].
 
 Check snd (fst result) : seq (edge Q).
 Compute length result.1.2.
+(* In the current version, for a single site, the program produces 14 edges.
+   This is obviously wrong. *)
+
 Compute emEd.
 
 Definition handle_site_event' :=
@@ -624,17 +647,42 @@ Definition init' := init Qeq_bool Qle_bool.
 
 Compute init' small_data nil.
 
-Lemma test : main' small_data = (0%nat, nil, nil, nil).
+Definition q1 := Eval compute in init' small_data nil.
+
+(* Here is an example of how one can scrutinize the execution step by step. *)
+
+Lemma test : main' small_data = (0%nat, nil, nil, nil) (* this a dummy value. *).
+(* Unfold the main functions. *)
 rewrite /main' /main.
+(* Notice that I added the fortune_step lemma exactly for this purpose. *)
+(* Note that the last argument of fortune is q1. *)
+rewrite -[(init _ _ _ _)]/q1.
 rewrite fortune_step.
+
 set aa := (muln _ 5).
 have -> : aa = 5%nat by [].
+(* expand the value of one variable. *)
 rewrite /small_data.
-set ab := init _ _ _ _.
-have -> : ab = [:: (false, (-23 # 1, -15 # 1), (-23 # 1, -15 # 1), (-23 # 1, -15 # 1), -15 # 1)] by [].
+(* re-collapse the value of a variable. *)
+rewrite -/small_data.
+(* To find the value that ab should have, I perform the following mock proof.
+   have : ab = [::].
+     compute.
+   This gives me an unprovable goal, where the left-hand side is the exact value
+   of ab.  I copy this left hand side in the next tactic. *)
+rewrite /q1.
 set ac := (false, _, _, _, _).1.1.1.1.
+(* here guessing the value of ac is easy, I still record it in the script. *)
 have -> : ac = false by [].
-fold handle_site_event'.
+(* I use the definition handle_site_event' to make the goal slightly easier
+  to read. *)
+rewrite -/handle_site_event'.
+(* To make goals easier to read, I decide to abbreviate the point that appears
+  many times as just p. *)
+set p := ((_ # _), _).
+rewrite -/handle_site_event'.
+(* I will also do the same for the event that appears several times. *)
+set e := (false, p, p, p, -15 # 1).
 set ad := _.1.1.2.
 have -> : ad = (-23 # 1, -15 # 1) by [].
 rewrite /handle_site_event' /handle_site_event.
@@ -662,4 +710,3 @@ have : w = ([:: (-23 # 1, -15 # 1, false); (-23 # 1, -15 # 1, false)],
   [:: (false, (-23 # 1, -15 # 1), (-23 # 1, -15 # 1),
       (-23 # 1, -15 # 1), -15 # 1)]).
 rewrite /w /check_circle_event.
-
