@@ -110,8 +110,6 @@ Canonical arc_eqType := EqType arc (EqMixin arc_eqP).
 Notation "p .focal"  := (focal p) ( at level 81).
 Notation "p .circle" := (circle p) ( at level 81).
 
-(* Edge *)
-
 Inductive edge  : Type := 
   Edge (st fn s_l s_r : point) (c : bool).
 Definition complete (e : edge) :=
@@ -276,7 +274,7 @@ Definition search_beach (p1 p2 p3 : point) ( beachline : seq arc): nat :=
 Definition search_edges (edges : seq edge) (p1 p2: point) : nat :=
 (* Given a list of edges, a left site p1, right site p2 then it returns     *) 
 (* the index where p1 p2 are the sites seperated by the edge                *)
-  find (fun x => (x.e_l === p1) && (x.e_r === p2)) edges.
+  find (fun x => (x.ed_l === p1) && (x.ed_r === p2)) edges.
 
 (* ========================== Geometric Functions ========================== *)
 
@@ -505,7 +503,7 @@ Definition special_case (ind       :     nat)   (p3    : point   )
   let pos      := vertical_intersection p1 p3                in
   let edg_ind  := search_edges edges p1 p2                   in
   let e1       := nth nulEd edges edg_ind                    in
-  let e1Upd    := Edge (e1.st) pos (e1.e_l) (e1.e_r) true    in
+  let e1Upd    := Edge (e1.st) pos (e1.ed_l) (e1.ed_r) true    in
   let updEdges := set_nth nulEd edges edg_ind e1Upd          in
   let e2       := Edge (pos) (pos) (p3) (p2) false           in
   let e3       := Edge (pos) (pos) (p1) (p3) false           in
@@ -559,10 +557,11 @@ Definition handle_circle_event (ev    : event   ) (beachline : seq arc  )
   let e_ind_m_r := search_edges edges m r                            in
   let e_l_m     := (nth nulEd edges e_ind_l_m)                       in
   let e_m_r     := (nth nulEd edges e_ind_m_r)                       in
-  let e_l_m'    := Edge (e_l_m.st) (c) (e_l_m.e_l) (e_l_m.e_r)  true in
-  let e_m_r'    := Edge (e_m_r.st) (c) (e_m_r.e_l) (e_m_r.e_r)  true in
+  let e_l_m'    := Edge (e_l_m.st) (c) (e_l_m.ed_l) (e_l_m.ed_r)  true in
+  let e_m_r'    := Edge (e_m_r.st) (c) (e_m_r.ed_l) (e_m_r.ed_r)  true in
   let newEdges  := set_nth nulEd edges e_ind_l_m e_l_m'              in
   let newEdges' := set_nth nulEd newEdges e_ind_m_r e_m_r'           in
+  let newEdges'' :=  [:: Edge c c l r false & newEdges'] in
   let i         := search_beach l m r beachline                      in
   let beach'    := remove i beachline                                in
   let i_left    := (i - 1)%nat                                       in
@@ -572,7 +571,7 @@ Definition handle_circle_event (ev    : event   ) (beachline : seq arc  )
   let BeaQ_r    := check_circle_event i_right y0 B_l Q_l             in
   let newBeach  := BeaQ_r.1                                          in
   let newQ      := BeaQ_r.2                                          in
-  (newBeach, newEdges', newQ) .
+  (newBeach, newEdges'', newQ) .
 
 
 
