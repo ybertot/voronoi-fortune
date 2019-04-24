@@ -77,13 +77,6 @@ Definition point_eq (p1 p2 : point) : bool :=
 Notation "p1 === p2" := (point_eq p1 p2)
   (at level 70, no associativity) : a_scope.
 
-Definition geq (p1 p2 : point ) : bool :=
-  if (p1.y) >= (p2.y) then true 
-  else if ( (p1.y) == (p2.y) ) &&  ( (p1.x) >= (p2.x) ) then true 
-  else false.
-Definition less (p1 p2 : point) : bool :=
-  if geq p1 p2 then false else true.
-
 (* Arc *)
 Inductive arc : Type :=
   Arc (p : point) (c : bool).
@@ -157,14 +150,32 @@ Notation "p .e_l"   := (event_left p) ( at level 82).    (* Final point *)
 Notation "p .cir" := (event_cir p) ( at level 82).       (* Start point *)
 (* cir  is an unfortunate notation *)
 
+Definition geq (e1 e2 : event ) : bool :=
+  match e1.cir, e2.cir with
+    false, false =>
+    ltr (e2.m.y) (e1.m.y) || 
+    (eq (e1.m.y) (e2.m.y) && ler (e1.m.x) (e2.m.x))
+  | _, _ => ler (e2.swp) (e1.swp)
+  end.
+
 (* Priority Queue *)
 Fixpoint push (e : event) ( s : seq event) : seq event   := 
   match s with 
   | [::] => [:: e]
-  | h::t =>  if  ( geq (h.e_m)  (e.e_m) ) then (* The y-coordinate of the site *)
+  | h::t =>  if geq h e then (* The y-coordinate of the site *)
               e :: h :: t
              else h :: push e t
   end.
+
+Lemma push_step e s : push e s =
+  match s with 
+  | [::] => [:: e]
+  | h::t =>  if geq h e then (* The y-coordinate of the site *)
+              e :: h :: t
+             else h :: push e t
+  end.
+Proof. by case: s. Qed.
+
 Definition pop   ( s : seq event) := ( head nulEv s, drop 1 s).
 Definition empty ( s : seq event) := if size s is 0%nat then true else false.
 
@@ -461,18 +472,16 @@ Definition check_circle_event ( ind : nat) ( y0 : R) (beachline : seq arc)
        else 
             let update   := Arc m true                            in
             let newBeach := set_nth nulArc beachline ind update   in
-            let newEvent := Event true l m r (m.y)                in
+            let newEvent := Event true l m r upper                in
             let newQ     :=  (push newEvent Q)           in
             (newBeach, newQ).
 
 Check (fun x : event =>  fst (fst (fst (fst x)))).
 
 Definition event_eq (e1 e2 : event) :=
-  (snd e1 == snd e2) &&
   (snd (fst e1) === snd (fst e2)) &&
   (snd (fst (fst e1)) === snd (fst (fst e2))) &&
-  ((snd (fst (fst (fst e1)))) === (snd (fst (fst (fst e2))))) &&
-  (eqb (fst (fst (fst (fst e1))))   (fst (fst (fst (fst e2))))).
+  ((snd (fst (fst (fst e1)))) === (snd (fst (fst (fst e2))))).
 
 Definition false_alarm (ind : nat) ( beachline : seq arc) ( Q : seq event) :
                        (seq arc)* (seq event) := 
@@ -552,7 +561,7 @@ Definition handle_circle_event (ev    : event   ) (beachline : seq arc  )
   let m         := ev.m                                              in
   let r         :=  ev.r                                             in
   let c         := circumcenter l m r                                in
-  let e1        := Edge (c) (c) (l) (r) false                        in
+  let new_edge  := Edge (c) (c) (l) (r) false                        in
   let e_ind_l_m := search_edges edges l m                            in
   let e_ind_m_r := search_edges edges m r                            in
   let e_l_m     := (nth nulEd edges e_ind_l_m)                       in
@@ -561,7 +570,7 @@ Definition handle_circle_event (ev    : event   ) (beachline : seq arc  )
   let e_m_r'    := Edge (e_m_r.st) (c) (e_m_r.ed_l) (e_m_r.ed_r)  true in
   let newEdges  := set_nth nulEd edges e_ind_l_m e_l_m'              in
   let newEdges' := set_nth nulEd newEdges e_ind_m_r e_m_r'           in
-  let newEdges'' :=  [:: Edge c c l r false & newEdges'] in
+  let newEdges'' :=  [:: new_edge & newEdges'] in
   let i         := search_beach l m r beachline                      in
   let beach'    := remove i beachline                                in
   let i_left    := (i - 1)%nat                                       in
@@ -723,10 +732,10 @@ Definition print_edge (e : edge Q) :=
 Definition blue_point (p : point Q) :=
   append (append (print_point p) "mkp"%string) eol.
 
-Definition small_data := [:: (-10#1, -10#1); (5#1, -9#1); (-2#1, 1#1);(4#1,15#1); (6#1, 3#1), (12#1, 8#1)].
+Definition small_data := [:: (-10#1, -10#1); (5#1, -9#1); (-2#1, 1#1);(4#1,15#1); (6#1, 3#1); (12#1, 8#1); (-8 # 1, 7 # 1); (15 # 1, 18# 1); (20 # 1, 0 # 1); (-12 # 1, 24 # 1); (-20 # 1, 3 # 1)].
 
 Compute 
-  let input := (take 5 small_data) in
+  let input := (take 10 small_data) in
   let result := main' input in
   append (append "%!PS" eol) 
     (append
@@ -735,8 +744,7 @@ Compute
   (fun e s => append (blue_point e) s)
   (foldr (fun e s => append (print_edge e) s) "stroke"%string
      (snd (fst result)))
-   input))
-  .
+   input)).
 
 Definition result :=  main' small_data.
 
@@ -748,7 +756,7 @@ Definition check_circle_event' :=
   check_circle_event 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool Qlt_bool
          Qnatmul Qexp.
 
-Definition init' := init Qeq_bool Qle_bool.
+Definition init' := init Qeq_bool Qle_bool Qlt_bool.
 
 Compute init' small_data nil.
 
@@ -761,27 +769,7 @@ Compute (dsquare (-3#1, -4#1) (0#1, 0#1)).
 Compute (dsquare (4#1, -3#1) (0#1, 0#1)).
 
 Compute result.
-Lemma test : main' small_data = (14%nat, 
-  [:: (-10#1, -10#1, false); (4#1, 15#1, false); (5#1, -9#1, false);
-   (-10#1, -10#1, false)], 
-  [:: (-42608 # 736, 24464 # 736, (-42608 # 736, 24464 # 736),
-           (-10 # 1, -10 # 1), (4 # 1, 15 # 1), false);
-           (30192 # 2528, 8368 # 2528, (30192 # 2528, 8368 # 2528),
-           (4 # 1, 15 # 1), (5 # 1, -9 # 1), false);
-           (4 # 1, 188 # 28, (30192 # 2528, 8368 # 2528), 
-           (4 # 1, 15 # 1), (-2 # 1, 1), true);
-           (4 # 1, 188 # 28, (-42608 # 736, 24464 # 736), 
-           (-2 # 1, 1), (4 # 1, 15 # 1), true);
-           (-6712 # 2512, -17384 # 2512, (-42608 # 736, 24464 # 736),
-           (-10 # 1, -10 # 1), (-2 # 1, 1), true);
-           (-2 # 1, -129 # 20, (30192 # 2528, 8368 # 2528), 
-           (-2 # 1, 1), (5 # 1, -9 # 1), true);
-           (-2 # 1, -129 # 20, (-6712 # 2512, -17384 # 2512),
-           (5 # 1, -9 # 1), (-2 # 1, 1), true);
-           (5 # 1, -244 # 2, (5 # 1, -244 # 2), (5 # 1, -9 # 1),
-           (-10 # 1, -10 # 1), false);
-           (5 # 1, -244 # 2, (-6712 # 2512, -17384 # 2512),
-           (-10 # 1, -10 # 1), (5 # 1, -9 # 1), true)], [::]).
+Lemma test : main' small_data = result.
 Proof.
 (* Unfold the main functions. *)
 rewrite /main' /main.
@@ -793,9 +781,12 @@ set a1 := Arc _ _.
 set p2 := ((_ # _), _).
 set p3 := ((_ # _), _).
 set p4 := ((_ # _), _).
+set pp1 := ((_ # _), _).
+set pp2 := ((_ # _), _).
+set pp3 := ((_ # _), _).
 set y2 := - 9 # 1.
-have -> : aa = 20%nat by [].
-set ab := init _ _ _ _.
+have -> : aa = 35%nat by [].
+set ab := init _ _ _ _ _.
 have -> : ab = q1 by [].
 rewrite /q1 -/p2 -/p3 -/p4 -/a1 -/y2.
 set ac := (false, _, _, _, _).1.1.1.1.
