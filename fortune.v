@@ -647,6 +647,24 @@ Definition main (s : seq point)  :=
    | [::] => (0%nat, emB, emEd, emQ)
    end.
   
+Definition add_infinite_edge (p1 p2 : point) (es : seq edge) : seq edge :=
+  let i := find [pred e | (e.ed_l === p1) && (e.ed_r === p2)]
+             es in
+  if eqn i (size es) then [::] else
+  let e := nth nulEd es i in
+  (* vectx is perpendicular to the vector p1 p2. *)
+  let vectx := (p1.y) - (p2.y) in
+  let vecty := (p2.x) - (p1.x) in
+  [:: Edge (e.st) (Point (e.st.x + vectx) (e.st.y + vecty)) p1 p2 true &
+      remove i es].
+
+Fixpoint add_infinites (bl : seq arc) (es : seq edge) : seq edge :=
+  match bl with
+  | (a, _) :: ((b, _) :: _) as tl =>
+    add_infinites tl (add_infinite_edge a b es)
+  | _ => es
+  end.
+
 End ab1.
 
 Extraction "fortune.ml" main.
@@ -803,17 +821,25 @@ Definition animate (n : nat) (ps : seq (point Q)) : string :=
      "%%Pages "; (Z_to_decimal (Z.of_nat n)); eol;
      animate_loop n n ps])%string.
 
+Definition add_infinite_edge' :=
+    add_infinite_edge 1 Qplus Qopp Qeq_bool Qnatmul.
+
+Definition add_infinites' := add_infinites 1 Qplus Qopp Qeq_bool Qnatmul.
+
 Definition display_final (ps : seq (point Q)) : string :=
+  let result := main' ps in
   foldr append ""%string
     ([:: "%!PS-adobe-2"; eol;
      "/mkp { newpath 1 0 360 arc stroke} def 300 400 translate 3 3 scale"; eol;
      "newpath"; eol;
-     display_points ps (display_edges (snd (fst (main' ps))) "stroke showpage");
+     display_points ps (display_edges
+        (add_infinites' (snd (fst (fst result)))
+            (snd (fst result))) "stroke showpage");
      eol])%string.
 
-(* Compute display_final small_data. *)
+Compute display_final small_data.
 
-Compute animate 24 (take 11 small_data).
+(* Compute animate 24 (take 11 small_data). *)
 
 Definition result :=  main' small_data.
 Compute result.
@@ -954,95 +980,3 @@ set bl := [:: _ & _].
 set es := [:: (_, _, (_, _), (_, _), (_, _), false) & _].
 rewrite fortune_step expand_event_kind -/handle_site_event'.
 set q := [:: _ & _].
-set w := handle_site_event' _ _ _ _.
-have : w = (nil, nil, nil).
-  rewrite /w /handle_site_event' /handle_site_event.
-set aa := search_vertical _ _ _ _ _ _ _ _ _ _ _ _ _.
-compute in aa; rewrite [aa.2](_ : _ = false); last by [].
-rewrite -[(aa.1.1 + 2)%nat]/6 -[(_, _).1.1.2.2]/(18#1) -[(aa.1.1+1)%nat]/5.
-rewrite -[Arc _ false]/(Arc (15 # 1, 18 # 1) false).
-set ad := vertical_intersection _ _ _ _ _ _ _ _ _.
-rewrite -[ad]/(15 # 1, 251 # 20) -[_.1.1.2]/(15 # 1, 18 # 1).
-set ae := insert _ _ _; compute in ae; rewrite /ae; set bl2 := [:: _ & _].
-set es2 := [:: _ & _].
-set ab := (X in check_circle_event _ _ _ _ _ _ _ _ _ _ _ _ _ _ X.2).
-rewrite -/ab.
-set af := check_circle_event _ _ _ _ _ _ _ _ _ _ _ _ _ _ _.
-have : af = (nil, nil).
-rewrite /af /check_circle_event.
-set p1 := focal _.
-set p2 := focal _.
-set p3 := focal _.
-set cc := circumcenter _ _ _ _ _ _ _ _ _.
-rewrite 2!orFb.
-set ag := Qlt_bool _ _.
-compute in p1.
-compute in p2.
-compute in p3.
-(* ag is true.  This is the problem. *)
-compute in ag.
-compute in ab.
-rewrite -/ab.
-set 
-
-
-rewrite -[vertical_intersection _ _ _ _ _]
-compute in ab; rewrite /ab.
-set ac := check_circle_event _ _ _ _ _ _ _ _ _ _ _ _ _ _ _.
-have : ac = (nil, nil).
-  rewrite /ac /check_circle_event.
-compute in ad.
-do 1 (rewrite fortune_step;
-rewrite expand_event_kind;
-((rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _; compute in w;
-rewrite /w {w}) ||
-(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _; compute in w;
-rewrite /w {w}));
-rewrite expand_res1 expand_res2 expand_res3).
-
-do 1 (rewrite fortune_step;
-rewrite expand_event_kind;
-((rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _; compute in w;
-rewrite /w {w}) ||
-(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _; compute in w;
-rewrite /w {w}));
-rewrite expand_res1 expand_res2 expand_res3).
-do 1 (rewrite fortune_step;
-rewrite expand_event_kind;
-((rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _; compute in w;
-rewrite /w {w}) ||
-(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _; compute in w;
-rewrite /w {w}));
-rewrite expand_res1 expand_res2 expand_res3).
-
-compute.
-rewrite -/result.
-set es := (X in fortune _ _ _ _ _ _ _ _ _ _ _ _ _ X).
-set ss := display_edges es "".
-compute in ss.
-
-Compute ((37184 * 100) / 1664)%Z.
-Compute ((17216 * 100) / 1664)%Z.
-(* Unfold the main functions. *)
-rewrite /main' /main.
-rewrite /small_data.
-rewrite fortune_step.
-set aa := (muln _ 5).
-set p1 := (X in Arc X).
-set a1 := Arc _ _.
-set p2 := ((_ # _), _).
-set p3 := ((_ # _), _).
-set p4 := ((_ # _), _).
-set pp1 := ((_ # _), _).
-set pp2 := ((_ # _), _).
-set pp3 := ((_ # _), _).
-set y2 := - 9 # 1.
-have -> : aa = 35%nat by [].
-set ab := init _ _ _ _ _.
-have -> : ab = q1 by [].
-rewrite /q1 -/p2 -/p3 -/p4 -/a1 -/y2.
-set ac := (false, _, _, _, _).1.1.1.1.
-have -> : ac = false by [].
-rewrite -/handle_site_event'.
-set e := (false, p2, p2, p2, y2).
-set ad := _.1.1.2.
