@@ -1,4 +1,5 @@
 From mathcomp Require Import all_ssreflect all_algebra all_field.
+From Coq Require Extraction.
 
 Import GRing.Theory Num.Theory Num.ExtraDef.
 
@@ -6,8 +7,38 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-Locate ":>".
+Section infinite_descent.
 
+Variables (T : finType) (R : rel T) (anti_R : antisymmetric R)
+  (trans_R : transitive R).
+Variables (P : pred T).
+Variable (descent : forall x, P x -> exists2 y, P y & (y != x) && R y x).
+
+Lemma infinite_descent : P =1 pred0.
+Proof.
+suff main : forall n, forall (x : T) (s : {set T}), #|s| <= n ->
+     (forall y, P y && (R y x || (y == x)) -> y \in s) -> ~~P x.
+  by move=> x; apply/negbTE/(main #|T| x setT) => //; apply/max_card.
+elim => [ | n IH] x s.
+  rewrite leqn0 => /eqP/card0_eq step incl.
+  apply/negP => /descent [y A /andP [_ B]].
+  suff : (y \in pred0) by [].
+  by rewrite -step; apply: incl; rewrite A B.
+move=> pc incl.
+  apply/negP => px; move: (px) => /descent [y A /andP [ynx B]].
+have xs : x \in s by apply incl; rewrite px eqxx orbT.
+have c1 : #|s :\ x| <= n by move: pc; rewrite (cardsD1 x) xs add1n ltnS.
+have incl' : forall z, P z && (R z y || (z == y)) -> z \in s :\ x.
+  move=> z /andP [] pz /orP [rzy | zy].
+    rewrite !inE; apply/andP; split.
+      apply/negP=> /eqP zx; case/negP: ynx; apply/eqP.
+      by apply: anti_R; rewrite B -zx rzy.
+    by apply: incl; rewrite pz andTb; apply/orP; left; apply: (trans_R rzy).
+  by rewrite (eqP zy) !inE ynx; apply: incl; rewrite A B.
+by move: (IH y _ c1 incl'); rewrite A.
+Qed.
+
+End infinite_descent.
 
 Section ab1.
 
