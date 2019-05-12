@@ -465,7 +465,7 @@ Definition false_alarm (ind : nat) ( beachline : seq arc) ( Q : seq event) :
 
 Definition special_case (ind       :     nat)   (p3    : point   )
                         (beachline : seq arc)   (edges : seq edge)   :
-                        (      seq arc      ) * (    seq edge    )   :=
+                        R * ( seq arc      ) * (    seq edge    )   :=
   let p1       := (nth nulArc beachline ind).focal           in
   let p2       := (nth nulArc beachline (ind + 1)%nat).focal in
   let pos      := vertical_intersection p1 p3                in
@@ -478,12 +478,12 @@ Definition special_case (ind       :     nat)   (p3    : point   )
   let newArc   := Arc (p3) false                             in
   let newBeach := insert  newArc beachline (ind + 1)%nat     in
   let newEdges := updEdges ++ [:: e2; e3]                    in
-  (newBeach, newEdges).
+  (p3.y, newBeach, newEdges).
 
 
 Definition handle_site_event ( p1   : point   ) ( beachline : seq arc )
                              (edges : seq edge) ( Q         : seq event) :
-                             ((seq arc) * ( seq edge) * ( seq event))    :=
+                             (R * (seq arc) * ( seq edge) * ( seq event))    :=
                                (*  beach       edges          Q *)
 
   let indices := search_vertical beachline p1 in
@@ -510,7 +510,7 @@ Definition handle_site_event ( p1   : point   ) ( beachline : seq arc )
       let BeaQ_r    := check_circle_event (i + 2)%nat y0 B_l Q_l in
       let newBeach  := BeaQ_r.1                                  in
       let newQ      := BeaQ_r.2                                  in
-      (newBeach, newEdges, newQ) .
+      (y0, newBeach, newEdges, newQ) .
 
 Definition remove_side_events (l m r : point) (q : seq event) :=
   filter (fun ev => ~~ (((ev.l === l) && (ev.m === m)) ||
@@ -518,7 +518,7 @@ Definition remove_side_events (l m r : point) (q : seq event) :=
 
 Definition handle_circle_event (ev    : event   ) (beachline : seq arc  )
                                (edges : seq edge) (Q         : seq event) :
-                               ( (seq arc) * ( seq edge) * ( seq event) ) :=
+                               (R * (seq arc) * ( seq edge) * ( seq event) ) :=
   let y0        := ev.swp                                            in
   let l         := ev.l                                              in
   let m         := ev.m                                              in
@@ -544,48 +544,52 @@ Definition handle_circle_event (ev    : event   ) (beachline : seq arc  )
   let newBeach  := BeaQ_r.1                                          in
   let newQ      := BeaQ_r.2                                          in
   let newQ'     := remove_side_events l m r newQ                     in
-  (newBeach, newEdges'', newQ') .
+  (y0, newBeach, newEdges'', newQ') .
 
 Fixpoint fortune  (n     :  nat    ) (beachline : seq arc  )
                   (edges : seq edge) (Q         : seq event) 
+                  (prev : R)
                   {struct n        }                             :
-                  (nat * (seq arc) * ( seq edge) * ( seq event)) :=
+                  (nat * R * (seq arc) * ( seq edge) * ( seq event)) :=
 
   match n, Q with
-  | _    , [::] => (n, beachline, edges, Q)
+  | _    , [::] => (n, prev, beachline, edges, Q)
   | S n' , h::t => if (h.cir) then
                        let res := handle_circle_event h beachline edges t in
                        let edges' := snd (fst res)  in
-                       let beach' := fst (fst res)  in
+                       let beach' := snd (fst (fst res))  in
+                       let prev' := fst (fst (fst res)) in
                        let Q'     := snd res        in
-                       fortune n' beach' edges' Q'
+                       fortune n' beach' edges' Q' prev'
                    else
                        let res := handle_site_event (h.m) beachline edges t in
                        let edges' := snd (fst res)  in
-                       let beach' := fst (fst res)  in
+                       let beach' := snd (fst (fst res))  in
+                       let prev' := fst (fst (fst res)) in
                        let Q'     := snd res        in
-                       fortune n' beach' edges' Q'
-
-  | 0%nat , _    => (n, beachline, edges, Q)
+                       fortune n' beach' edges' Q' prev'
+  | 0%nat , _    => (n, prev, beachline, edges, Q)
   end.
 
-Lemma fortune_step n beachline edges Q : fortune n beachline edges Q =
-    match n, Q with
-  | _    , [::] => (n, beachline, edges, Q)
+Lemma fortune_step n beachline edges Q prev : fortune n beachline edges Q prev =
+
+  match n, Q with
+  | _    , [::] => (n, prev, beachline, edges, Q)
   | S n' , h::t => if (h.cir) then
                        let res := handle_circle_event h beachline edges t in
                        let edges' := snd (fst res)  in
-                       let beach' := fst (fst res)  in
+                       let beach' := snd (fst (fst res))  in
+                       let prev' := fst (fst (fst res)) in
                        let Q'     := snd res        in
-                       fortune n' beach' edges' Q'
+                       fortune n' beach' edges' Q' prev'
                    else
                        let res := handle_site_event (h.m) beachline edges t in
                        let edges' := snd (fst res)  in
-                       let beach' := fst (fst res)  in
+                       let beach' := snd (fst (fst res))  in
+                       let prev' := fst (fst (fst res)) in
                        let Q'     := snd res        in
-                       fortune n' beach' edges' Q'
-
-  | 0%nat , _    => (n, beachline, edges, Q)
+                       fortune n' beach' edges' Q' prev'
+  | 0%nat , _    => (n, prev, beachline, edges, Q)
   end.
 Proof. by case: n. Qed.
 
@@ -601,9 +605,9 @@ Definition main (s : seq point)  :=
   match q with
   | p :: t =>
     let n := ((size s)*5)%nat        in (* TODO Find an accurate upper bound *)
-    let res := fortune n [:: Arc (p.m) false] emEd t  in (* To add an extra box *)
+    let res := fortune n [:: Arc (p.m) false] emEd t (p.swp) in (* To add an extra box *)
     res
-   | [::] => (0%nat, emB, emEd, emQ)
+   | [::] => (0%nat, 0%:R, emB, emEd, emQ)
    end.
   
 Definition add_infinite_edge (p1 p2 : point) (es : seq edge) : seq edge :=
@@ -703,7 +707,7 @@ Definition print_Q_approximate (r : Q) :=
   let v := (1000 * Qnum r / (Zpos (Qden r)))%Z in
   append (Z_to_decimal v) " 1000 div ".
 
-Definition print_Q := print_Q_exact.
+Definition print_Q := print_Q_approximate.
 
 Definition print_point (p : point Q) :=
   append (print_Q (fst p))
@@ -744,20 +748,20 @@ Compute
 *)
 
 Fixpoint animate_fortune (n : nat) bl eds q :
-  nat * seq (arc Q) * seq (edge Q) * seq (event Q) :=
+  nat * Q * seq (arc Q) * seq (edge Q) * seq (event Q) :=
   match n with
-  | 0%nat => (0%nat, bl, eds, q)
+  | 0%nat => (0%nat, 0, bl, eds, q)
   | S p => fortune 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool Qlt_bool
-              Qnatmul Qexp (S p) bl eds q
+              Qnatmul Qexp (S p) bl eds q 0
   end.
 
 Definition animate_main (n : nat) (ps : seq (point Q)) :=
   let q := init Qeq_bool Qle_bool Qlt_bool ps (emQ Q) in
   match q with
-  | [::] => (0%nat, emB Q, emEd Q, emQ Q)
+  | [::] => (0%nat, 0, emB Q, emEd Q, emQ Q)
   | p :: q =>
   fortune 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool Qlt_bool
-    Qnatmul Qexp n [:: Arc (p.1.1.2) false] (emEd Q) q
+    Qnatmul Qexp n [:: Arc (p.1.1.2) false] (emEd Q) q (snd p)
   end.
 
 Fixpoint animate_loop (n k : nat) (ps : seq (point Q)) : string :=
@@ -775,6 +779,48 @@ Fixpoint animate_loop (n k : nat) (ps : seq (point Q)) : string :=
  "newpath"; eol])%string
   end.
 
+Definition draw_parabola (dir_y focal_x focal_y st fin : Q) : string :=
+   let dif_y := focal_y - dir_y in
+   let cmpt u := u ^ 2 / ((2 # 1) * dif_y) + (focal_y + dir_y) / (2 # 1) in
+   let st_y := cmpt (st - focal_x) in
+   let fn_y := cmpt (fin - focal_x) in
+   let w := (fin - st) / (3 # 1) in
+   let p_1_y := st_y + w * (st - focal_x) / dif_y in
+   let p_2_y := fn_y - w * (fin - focal_x) / dif_y in
+     "% " ++ print_Q focal_x ++ print_Q focal_y ++ print_Q st ++ print_Q st_y ++
+     print_Q dir_y ++ eol ++
+(*     print_Q st ++ print_Q st_y ++ " moveto " ++ eol ++ *)
+     print_Q (st + w) ++ print_Q p_1_y ++ print_Q (fin - w) ++
+     print_Q p_2_y ++ print_Q fin ++ print_Q fn_y ++ 
+    "curveto " ++ eol.
+   
+Fixpoint display_beach_rec (y : Q) (prev : Q) (l : seq (arc Q)) trailer : string :=
+  match l with
+    nil => trailer
+  | ((x_0, y_0), _) :: nil => draw_parabola y x_0 y_0 prev (prev + (y - y_0))
+    ++ trailer
+  | ((x_0, y_0), _) :: (((x_1, y_1), _) :: _) as tl =>
+    let x_2 := pick_sol 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool Qnatmul Qexp
+              (x_0, y_0) (x_1, y_1) y in
+    draw_parabola y x_0 y_0 prev x_2 ++ display_beach_rec y x_2 tl trailer
+  end.
+
+Definition display_beach_line (y : Q) (l : seq (arc Q)) trailer : string :=
+" stroke 0.5 0 0 setrgbcolor" ++ eol ++
+match l with
+| nil => trailer
+| ((x_0, y_0), _):: nil =>
+  draw_parabola y x_0 y_0 (x_0 - (y - y_0)) (x_0 + (y - y_0)) ++ trailer
+| ((x_0, y_0), _) :: (((x_1, y_1), _) :: _) as tl =>
+  let x_2 := pick_sol 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool Qnatmul Qexp
+              (x_0, y_0) (x_1, y_1) y in
+  let x_3 := (x_2 - (y - y_0)) in
+  (print_Q x_3 ++ print_Q ((x_3 - x_0) ^ 2 / (y_0 - y) + (y + y_0) / (2 # 1)) ++
+  " moveto " ++
+  draw_parabola y x_0 y_0 (x_2 - (y - y_0)) x_2 ++
+  display_beach_rec y x_2 tl trailer)
+end.
+
 Definition animate (n : nat) (ps : seq (point Q)) : string :=
   (foldr append ""
     [:: "%!PS-adobe-2"; eol;
@@ -786,16 +832,28 @@ Definition add_infinite_edge' :=
 
 Definition add_infinites' := add_infinites 1 Qplus Qopp Qeq_bool Qnatmul.
 
+Definition Qmax (a b : Q) := if Qle_bool a b then b else a.
+
+Fixpoint cmpt_max_y (l : seq (edge Q)) val :=
+match l with
+  [::] => val
+| a :: tl => cmpt_max_y tl (Qmax (snd (fst (fst (fst (fst a)))))
+                          (Qmax (snd (snd (fst (fst (fst a))))) val))
+end.
+
 Definition display_final (ps : seq (point Q)) : string :=
   let result := main' ps in
+  let max_y := cmpt_max_y (snd (fst result)) (0 # 1) in
   foldr append ""%string
     ([:: "%!PS-adobe-2"; eol;
      "/mkp { newpath 1 0 360 arc stroke} def 300 400 translate 3 3 scale"; eol;
      "newpath"; eol;
      display_points ps (display_edges
         (add_infinites' (snd (fst (fst result)))
-            (snd (fst result))) "stroke showpage");
-     eol])%string.
+            (snd (fst result))) 
+          (display_beach_line (snd (fst (fst (fst result))))
+                (snd (fst (fst result)))
+             (append "stroke showpage" eol)))])%string.
 
 Compute display_final small_data.
 
