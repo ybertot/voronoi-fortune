@@ -705,7 +705,7 @@ Definition print_Q_exact (r : Q) :=
 
 Definition print_Q_approximate (r : Q) :=
   let v := (1000 * Qnum r / (Zpos (Qden r)))%Z in
-  append (Z_to_decimal v) " 1000 div ".
+  append (Z_to_decimal v) " ".
 
 Definition print_Q := print_Q_approximate.
 
@@ -715,9 +715,9 @@ Definition print_point (p : point Q) :=
 
 Definition print_edge (e : edge Q) :=
   if snd e then
-    append (print_point (st e)) (append "moveto "%string
+    append (print_point (st e)) (append "m "%string
       (append (print_point (fn e)) 
-      (append "lineto"%string eol)))
+      (append "l"%string eol)))
   else
     ""%string.
 
@@ -775,7 +775,8 @@ Fixpoint animate_loop (n k : nat) (ps : seq (point Q)) : string :=
         (append (append "stroke showpage" eol)
             (animate_loop p k ps))))
       ([:: "%%Page "; page_num; " "; page_num; eol;
-     "/mkp { newpath 1 0 360 arc stroke} def 300 400 translate 3 3 scale"; eol;
+     "/mkp { newpath 1 0 360 arc stroke} def 300 400 translate 3 3 scale";
+     eol;
  "newpath"; eol])%string
   end.
 
@@ -792,7 +793,7 @@ Definition draw_parabola (dir_y focal_x focal_y st fin : Q) : string :=
 (*     print_Q st ++ print_Q st_y ++ " moveto " ++ eol ++ *)
      print_Q (st + w) ++ print_Q p_1_y ++ print_Q (fin - w) ++
      print_Q p_2_y ++ print_Q fin ++ print_Q fn_y ++ 
-    "curveto " ++ eol.
+    "c " ++ eol.
    
 Fixpoint display_beach_rec (y : Q) (prev : Q) (l : seq (arc Q)) trailer : string :=
   match l with
@@ -846,7 +847,12 @@ Definition display_final (ps : seq (point Q)) : string :=
   let max_y := cmpt_max_y (snd (fst result)) (0 # 1) in
   foldr append ""%string
     ([:: "%!PS-adobe-2"; eol;
-     "/mkp { newpath 1 0 360 arc stroke} def 300 400 translate 3 3 scale"; eol;
+     "/l {1000 div exch 1000 div exch lineto} def"; eol;
+     "/m {1000 div exch 1000 div exch moveto} def"; eol;
+     "/c {6 5 roll 1000 div 6 5 roll 1000 div 6 5 roll 1000 div"; eol;
+      "6 5 roll 1000 div 6 5 roll 1000 div 6 5 roll 1000 div curveto} def"; eol;
+     "/mkp {1000 div exch 1000 div exch newpath 1 0 360 arc stroke} def"; eol;
+     "300 400 translate 3 3 scale"; eol;
      "newpath"; eol;
      display_points ps (display_edges
         (add_infinites' (snd (fst (fst result)))
