@@ -372,6 +372,10 @@ Definition pick_sol (p1 p2 : point) (y0 : R) : R :=
       (- C - sqrtr discr) / 2%:R
     else (- C + sqrtr discr) / 2%:R.
 
+Definition pick_sol' (p1 p2 : point) (y0 : R) : R :=
+  if p1.y == y0 then p1.x else
+  if p2.y == y0 then p2.x else
+  pick_sol p1 p2 y0.
 
 Definition before (p1 p2 p : point) : bool*bool :=
   (* Pick the suitable intersection point *) 
@@ -713,13 +717,25 @@ Definition print_point (p : point Q) :=
   append (print_Q (fst p))
   (append " "%string (append (print_Q (snd p)) " "%string)).
 
-Definition print_edge (e : edge Q) :=
+Definition compute_break_point (swp : Q) (p1 p2 : point Q) :=
+    let f_x := pick_sol' 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool
+              Qnatmul Qexp p1 p2 swp in
+    (f_x, if Qeq_bool (snd p1) swp then
+                 (f_x - fst p2) ^ 2 / ((2 # 1) * (snd p2 - swp)) +
+                 (snd p2 + swp) / (2 # 1)
+               else
+                 (f_x - fst p1) ^ 2 / ((2 # 1) * (snd p1 - swp)) +
+                 (snd p1 + swp) / (2 # 1)).
+
+Definition print_edge (swp : Q) (e : edge Q) :=
   if snd e then
     append (print_point (st e)) (append "m "%string
       (append (print_point (fn e)) 
       (append "l"%string eol)))
   else
-    ""%string.
+    (print_point (st e) ++ "m " ++
+    print_point (compute_break_point swp (snd (fst (fst e))) (snd (fst e))) ++
+    "l " ++ eol)%string.
 
 Definition blue_point (p : point Q) :=
   append (append (print_point p) "mkp"%string) eol.
@@ -732,20 +748,57 @@ Definition display_points (ps : seq (point Q)) (final_string : string) :
   string :=
   foldr (fun e s => append (blue_point e) s) final_string ps.
 
-Definition display_edges (es : seq (edge Q)) (final_string : string) :
+Definition display_edges (swp : Q) (es : seq (edge Q)) (final_string : string) :
   string :=
-  foldr (fun e s => append (print_edge e) s) final_string es.
+  foldr (fun e s => append (print_edge swp e) s) final_string es.
 
-(*
-Compute 
-  let input := (take 11 small_data) in
-  let result := main' input in
-  append (append "%!PS" eol) 
-    (append
-    "/mkp { newpath 1 0 360 arc stroke} def 300 400 translate 3 3 scale "
-  (display_points input
-    (display_edges (snd (fst result)) "stroke%string"))).
-*)
+Definition draw_parabola (dir_y focal_x focal_y st fin : Q) : string :=
+    let dif_y := focal_y - dir_y in
+    let cmpt u := u ^ 2 / ((2 # 1) * dif_y) + (focal_y + dir_y) / (2 # 1) in
+    let st_y := cmpt (st - focal_x) in
+    let fn_y := cmpt (fin - focal_x) in
+    let w := (fin - st) / (3 # 1) in
+    let p_1_y := st_y + w * (st - focal_x) / dif_y in
+    let p_2_y := fn_y - w * (fin - focal_x) / dif_y in
+     "% " ++ print_Q focal_x ++ print_Q focal_y ++ print_Q st ++ print_Q st_y ++
+     print_Q dir_y ++ eol ++
+(*     print_Q st ++ print_Q st_y ++ " moveto " ++ eol ++ *)
+     print_Q (st + w) ++ print_Q p_1_y ++ print_Q (fin - w) ++
+     print_Q p_2_y ++ print_Q fin ++ print_Q fn_y ++ 
+    "c " ++ eol.
+   
+Fixpoint display_beach_rec (y : Q) (prev : Q)
+  (l : seq (arc Q)) trailer : string :=
+  match l with
+    nil => trailer
+  | ((x_0, y_0), _) :: nil =>
+    draw_parabola y x_0 y_0 prev (prev + (y - y_0)) ++ trailer
+  | ((x_0, y_0), _) :: (((x_1, y_1), _) :: _) as tl =>
+    let bp := compute_break_point y (x_0, y_0) (x_1, y_1) in
+    if Qeq_bool y y_0 then
+      ("% site" ++ eol ++ print_point (x_0, y_0) ++ "m " ++
+       print_point bp ++ "l " ++ eol ++
+      display_beach_rec y x_0 tl trailer)%string
+    else
+    (draw_parabola y x_0 y_0 prev (fst bp) ++
+     display_beach_rec y (fst bp) tl trailer)%string
+  end.
+
+Definition display_beach_line (y : Q) (l : seq (arc Q)) trailer : string :=
+" stroke 0.5 0 0 setrgbcolor" ++ eol ++
+match l with
+| nil => trailer
+| ((x_0, y_0), _):: nil =>
+  draw_parabola y x_0 y_0 (x_0 - (y - y_0)) (x_0 + (y - y_0)) ++ trailer
+| ((x_0, y_0), _) :: (((x_1, y_1), _) :: _) as tl =>
+  let x_2 := pick_sol 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool Qnatmul Qexp
+              (x_0, y_0) (x_1, y_1) y in
+  let x_3 := (x_2 - (y - y_0)) in
+  (print_Q x_3 ++ print_Q ((x_3 - x_0) ^ 2 / (y_0 - y) + (y + y_0) / (2 # 1)) ++
+  " moveto " ++
+  draw_parabola y x_0 y_0 (x_2 - (y - y_0)) x_2 ++
+  display_beach_rec y x_2 tl trailer)
+end.
 
 Fixpoint animate_fortune (n : nat) bl eds q :
   nat * Q * seq (arc Q) * seq (edge Q) * seq (event Q) :=
@@ -769,62 +822,29 @@ Fixpoint animate_loop (n k : nat) (ps : seq (point Q)) : string :=
   | 0%nat => ""%string
   | S p =>
     let result := animate_main (S k - (S p)) ps in
+    let swp := snd (fst (fst (fst result))) in
     let page_num := Z_to_decimal (Z.of_nat (S k - (S p))) in
     foldr append
-      (display_points ps (display_edges (snd (fst result))
-        (append (append "stroke showpage" eol)
-            (animate_loop p k ps))))
+      (display_points ps (display_edges swp (snd (fst result))
+        (display_beach_line swp (snd (fst (fst result)))
+          (append (append "stroke showpage" eol)
+            (animate_loop p k ps)))))
       ([:: "%%Page "; page_num; " "; page_num; eol;
-     "/mkp { newpath 1 0 360 arc stroke} def 300 400 translate 3 3 scale";
+     "300 400 translate 3 3 scale";
      eol;
  "newpath"; eol])%string
   end.
 
-Definition draw_parabola (dir_y focal_x focal_y st fin : Q) : string :=
-   let dif_y := focal_y - dir_y in
-   let cmpt u := u ^ 2 / ((2 # 1) * dif_y) + (focal_y + dir_y) / (2 # 1) in
-   let st_y := cmpt (st - focal_x) in
-   let fn_y := cmpt (fin - focal_x) in
-   let w := (fin - st) / (3 # 1) in
-   let p_1_y := st_y + w * (st - focal_x) / dif_y in
-   let p_2_y := fn_y - w * (fin - focal_x) / dif_y in
-     "% " ++ print_Q focal_x ++ print_Q focal_y ++ print_Q st ++ print_Q st_y ++
-     print_Q dir_y ++ eol ++
-(*     print_Q st ++ print_Q st_y ++ " moveto " ++ eol ++ *)
-     print_Q (st + w) ++ print_Q p_1_y ++ print_Q (fin - w) ++
-     print_Q p_2_y ++ print_Q fin ++ print_Q fn_y ++ 
-    "c " ++ eol.
-   
-Fixpoint display_beach_rec (y : Q) (prev : Q) (l : seq (arc Q)) trailer : string :=
-  match l with
-    nil => trailer
-  | ((x_0, y_0), _) :: nil => draw_parabola y x_0 y_0 prev (prev + (y - y_0))
-    ++ trailer
-  | ((x_0, y_0), _) :: (((x_1, y_1), _) :: _) as tl =>
-    let x_2 := pick_sol 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool Qnatmul Qexp
-              (x_0, y_0) (x_1, y_1) y in
-    draw_parabola y x_0 y_0 prev x_2 ++ display_beach_rec y x_2 tl trailer
-  end.
-
-Definition display_beach_line (y : Q) (l : seq (arc Q)) trailer : string :=
-" stroke 0.5 0 0 setrgbcolor" ++ eol ++
-match l with
-| nil => trailer
-| ((x_0, y_0), _):: nil =>
-  draw_parabola y x_0 y_0 (x_0 - (y - y_0)) (x_0 + (y - y_0)) ++ trailer
-| ((x_0, y_0), _) :: (((x_1, y_1), _) :: _) as tl =>
-  let x_2 := pick_sol 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool Qnatmul Qexp
-              (x_0, y_0) (x_1, y_1) y in
-  let x_3 := (x_2 - (y - y_0)) in
-  (print_Q x_3 ++ print_Q ((x_3 - x_0) ^ 2 / (y_0 - y) + (y + y_0) / (2 # 1)) ++
-  " moveto " ++
-  draw_parabola y x_0 y_0 (x_2 - (y - y_0)) x_2 ++
-  display_beach_rec y x_2 tl trailer)
-end.
-
 Definition animate (n : nat) (ps : seq (point Q)) : string :=
   (foldr append ""
-    [:: "%!PS-adobe-2"; eol;
+   [:: "%!PS-adobe-2"; eol;
+     "/l {1000 div exch 1000 div exch lineto} def"; eol;
+     "/m {1000 div exch 1000 div exch moveto} def"; eol;
+     "/c {6 5 roll 1000 div 6 5 roll 1000 div 6 5 roll 1000 div"; eol;
+      "6 5 roll 1000 div 6 5 roll 1000 div 6 5 roll 1000 div curveto} def"; eol;
+     "/mkp {1000 div exch 1000 div exch newpath 1 0 360 arc stroke} def"; eol;
+     "300 400 translate 3 3 scale"; eol;
+     "newpath"; eol;
      "%%Pages "; (Z_to_decimal (Z.of_nat n)); eol;
      animate_loop n n ps])%string.
 
@@ -844,7 +864,7 @@ end.
 
 Definition display_final (ps : seq (point Q)) : string :=
   let result := main' ps in
-  let max_y := cmpt_max_y (snd (fst result)) (0 # 1) in
+  let swp := snd (fst (fst (fst result))) in
   foldr append ""%string
     ([:: "%!PS-adobe-2"; eol;
      "/l {1000 div exch 1000 div exch lineto} def"; eol;
@@ -854,16 +874,13 @@ Definition display_final (ps : seq (point Q)) : string :=
      "/mkp {1000 div exch 1000 div exch newpath 1 0 360 arc stroke} def"; eol;
      "300 400 translate 3 3 scale"; eol;
      "newpath"; eol;
-     display_points ps (display_edges
-        (add_infinites' (snd (fst (fst result)))
-            (snd (fst result))) 
-          (display_beach_line (snd (fst (fst (fst result))))
-                (snd (fst (fst result)))
+     display_points ps (display_edges swp (snd (fst result))
+          (display_beach_line swp (snd (fst (fst result)))
              (append "stroke showpage" eol)))])%string.
 
-Compute display_final small_data.
+(* Compute display_final small_data. *)
 
-(* Compute animate 24 (take 11 small_data). *)
+Compute animate 24 (take 11 small_data).
 
 Definition result :=  main' small_data.
 Compute result.
