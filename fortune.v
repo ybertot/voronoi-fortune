@@ -740,13 +740,6 @@ Definition print_edge (swp : Q) (e : edge Q) :=
 Definition blue_point (p : point Q) :=
   append (append (print_point p) "mkp"%string) eol.
 
-Definition small_data := [:: (-10#1, -10#1); (5#1, -9#1); (-2#1, 1#1);
-  (4#1,15#1); (6#1, 3#1); (12#1, 8#1); (-8 # 1, 7 # 1);
-  (15 # 1, 18# 1); (20 # 1, 0 # 1); (-12 # 1, 24 # 1); (-201 # 10, 3 # 1)].
-
-Definition data2 := [::  (-(10#1), -(10#1)); (5#1, 0#1); (0#1, 2#1);
-                       (-(2#1), 8#1); (8#1, 13#1); (-9#1, 15#1)].
-
 Definition display_points (ps : seq (point Q)) (final_string : string) :
   string :=
   foldr (fun e s => append (blue_point e) s) final_string ps.
@@ -755,11 +748,14 @@ Definition display_edges (swp : Q) (es : seq (edge Q)) (final_string : string) :
   string :=
   foldr (fun e s => append (print_edge swp e) s) final_string es.
 
+Definition compute_parabola (dir_y focal_x focal_y u : Q) : Q :=
+    let dif_y := focal_y - dir_y in
+    u ^ 2 / ((2 # 1) * dif_y) + (focal_y + dir_y) / (2 # 1).
+  
 Definition draw_parabola (dir_y focal_x focal_y st fin : Q) : string :=
     let dif_y := focal_y - dir_y in
-    let cmpt u := u ^ 2 / ((2 # 1) * dif_y) + (focal_y + dir_y) / (2 # 1) in
-    let st_y := cmpt (st - focal_x) in
-    let fn_y := cmpt (fin - focal_x) in
+    let st_y := compute_parabola dir_y focal_x focal_y (st - focal_x) in
+    let fn_y := compute_parabola dir_y focal_x focal_y (fin - focal_x) in
     let w := (fin - st) / (3 # 1) in
     let p_1_y := st_y + w * (st - focal_x) / dif_y in
     let p_2_y := fn_y - w * (fin - focal_x) / dif_y in
@@ -788,18 +784,21 @@ Fixpoint display_beach_rec (y : Q) (prev : Q)
   end.
 
 Definition display_beach_line (y : Q) (l : seq (arc Q)) trailer : string :=
-" stroke 0.5 0 0 setrgbcolor" ++ eol ++
+let y_s := print_Q y  in
+" stroke 0 0 0.5 setrgbcolor  -100000 " ++ y_s ++ "m 100000 " ++ y_s ++
+" l stroke 0.5 0 0 setrgbcolor" ++ eol ++
 match l with
 | nil => trailer
 | ((x_0, y_0), _):: nil =>
-  draw_parabola y x_0 y_0 (x_0 - (y - y_0)) (x_0 + (y - y_0)) ++ trailer
+  print_Q x_0 ++ print_Q y_0 ++ "m " ++
+  print_Q x_0 ++ print_Q (y_0 - (100 # 1)) ++ "l " ++ trailer
 | ((x_0, y_0), _) :: (((x_1, y_1), _) :: _) as tl =>
   let x_2 := pick_sol' 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool Qnatmul Qexp
               (x_0, y_0) (x_1, y_1) y in
-  let x_3 := (x_2 - (y - y_0)) in
-  (print_Q x_3 ++ print_Q ((x_3 - x_0) ^ 2 / (y_0 - y) + (y + y_0) / (2 # 1)) ++
-  " moveto " ++
-  draw_parabola y x_0 y_0 (x_2 - (y - y_0)) x_2 ++
+  let x_3 := (x_2 - (100 # 1)) in
+  let y_3 := compute_parabola y x_0 y_0 x_3 in
+  (print_Q x_3 ++ print_Q y_3 ++ " m " ++
+  draw_parabola y x_0 y_0 x_3 x_2 ++
   display_beach_rec y x_2 tl trailer)
 end.
 
@@ -846,10 +845,8 @@ Definition animate (n : nat) (ps : seq (point Q)) : string :=
      "/c {6 5 roll 1000 div 6 5 roll 1000 div 6 5 roll 1000 div"; eol;
       "6 5 roll 1000 div 6 5 roll 1000 div 6 5 roll 1000 div curveto} def"; eol;
      "/mkp {1000 div exch 1000 div exch newpath 1 0 360 arc stroke} def"; eol;
-     "300 400 translate 3 3 scale"; eol;
-     "newpath"; eol;
      "%%Pages "; (Z_to_decimal (Z.of_nat n)); eol;
-     animate_loop n n ps])%string.
+     animate_loop (S n) n ps])%string.
 
 Definition add_infinite_edge' :=
     add_infinite_edge 1 Qplus Qopp Qeq_bool Qnatmul.
@@ -881,11 +878,18 @@ Definition display_final (ps : seq (point Q)) : string :=
           (display_beach_line swp (snd (fst (fst result)))
              (append "stroke showpage" eol)))])%string.
 
+Definition small_data := [:: (-10#1, -10#1); (5#1, -6#1); (-2#1, 1#1);
+  (4#1,15#1); (6#1, 3#1); (12#1, 8#1); (-8 # 1, 7 # 1);
+  (15 # 1, 18# 1); (20 # 1, 0 # 1); (-12 # 1, 24 # 1); (100#1, 120#1)].
+
+Definition data2 := [::  (-(10#1), -(10#1)); (5#1, 0#1); (0#1, 2#1);
+                       (-(2#1), 8#1); (8#1, 13#1); (-9#1, 15#1); (100#1, 40#1)].
+
+Compute animate 23 (take 11 small_data).
+
+Compute animate 12 data2.
+
 (* Compute display_final small_data. *)
-
-(* Compute animate 24 (take 11 small_data). *)
-
-Compute animate 15 data2.
 
 Definition result :=  main' small_data.
 Compute result.
