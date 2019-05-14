@@ -744,6 +744,9 @@ Definition small_data := [:: (-10#1, -10#1); (5#1, -9#1); (-2#1, 1#1);
   (4#1,15#1); (6#1, 3#1); (12#1, 8#1); (-8 # 1, 7 # 1);
   (15 # 1, 18# 1); (20 # 1, 0 # 1); (-12 # 1, 24 # 1); (-201 # 10, 3 # 1)].
 
+Definition data2 := [::  (-(10#1), -(10#1)); (5#1, 0#1); (0#1, 2#1);
+                       (-(2#1), 8#1); (8#1, 13#1); (-9#1, 15#1)].
+
 Definition display_points (ps : seq (point Q)) (final_string : string) :
   string :=
   foldr (fun e s => append (blue_point e) s) final_string ps.
@@ -791,7 +794,7 @@ match l with
 | ((x_0, y_0), _):: nil =>
   draw_parabola y x_0 y_0 (x_0 - (y - y_0)) (x_0 + (y - y_0)) ++ trailer
 | ((x_0, y_0), _) :: (((x_1, y_1), _) :: _) as tl =>
-  let x_2 := pick_sol 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool Qnatmul Qexp
+  let x_2 := pick_sol' 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool Qnatmul Qexp
               (x_0, y_0) (x_1, y_1) y in
   let x_3 := (x_2 - (y - y_0)) in
   (print_Q x_3 ++ print_Q ((x_3 - x_0) ^ 2 / (y_0 - y) + (y + y_0) / (2 # 1)) ++
@@ -880,7 +883,9 @@ Definition display_final (ps : seq (point Q)) : string :=
 
 (* Compute display_final small_data. *)
 
-Compute animate 24 (take 11 small_data).
+(* Compute animate 24 (take 11 small_data). *)
+
+Compute animate 15 data2.
 
 Definition result :=  main' small_data.
 Compute result.
