@@ -885,6 +885,28 @@ Definition small_data := [:: (-10#1, -10#1); (5#1, -6#1); (-2#1, 1#1);
 Definition data2 := [::  (-(10#1), -(10#1)); (5#1, 0#1); (0#1, 2#1);
                        (-(2#1), 8#1); (8#1, 13#1); (-9#1, 15#1); (100#1, 40#1)].
 
+Compute main' small_data.
+
+Section tt.
+
+Variable bad : Q -> Prop.
+
+Variable c1 : (forall x, (bad x -> False) -> bad x).
+
+Variable bad_ind : forall P : Q -> Prop,
+  (forall x, (bad x -> False) -> (P x -> False) -> P x) ->
+  forall x, bad x -> P x.
+
+Lemma inc : False.
+Proof.
+assert (main: forall x, bad x -> False).
+intros x; apply (@bad_ind (fun x => False)).
+intros x0 step _; apply step.
+apply c1; apply step.
+apply (main 0).
+apply c1, main.
+Qed.
+
 Compute animate 23 (take 11 small_data).
 
 Compute animate 12 data2.
@@ -924,112 +946,38 @@ Lemma expand_event_kind (b : bool) (p1 p2 p3 : point Q) (q : Q) :
   (b, p1, p2, p3, q).1.1.1.1 = b.
 Proof. by []. Qed.
 
-Lemma expand_res1 (s1 : seq (point Q * bool))
-   (s2 : seq (edge Q)) (s3 : seq (event Q)) :
-  (s1, s2, s3).1.1 = s1.
+Lemma expand_res1 (A B C D : Type) (s1 : A) (s2 : B) (s3 : C) (s4 : D):
+  (s1, s2, s3, s4).1.1.1 = s1.
 Proof. by []. Qed.
 
-Lemma expand_res2 (s1 : seq (point Q * bool))
-   (s2 : seq (edge Q)) (s3 : seq (event Q)) :
-  (s1, s2, s3).1.2 = s2.
+Lemma expand_res2 (A B C D : Type) (s1 : A) (s2 : B) (s3 : C) (s4 : D):
+  (s1, s2, s3, s4).1.1.2 = s2.
 Proof. by []. Qed.
 
-Lemma expand_res3 (s1 : seq (point Q * bool))
-  (s2 : seq (edge Q)) (s3 : seq (event Q)) :
-  (s1, s2, s3).2 = s3.
+Lemma expand_res3 (A B C D : Type) (s1 : A) (s2 : B) (s3 : C) (s4 : D):
+  (s1, s2, s3, s4).1.2 = s3.
 Proof. by []. Qed.
 
+Lemma expand_res4 (A B C D : Type) (s1 : A) (s2 : B) (s3 : C) (s4 : D):
+  (s1, s2, s3, s4).2 = s4.
+Proof. by []. Qed.
+
+(* An example of debug session: stepping inside a proof. *)
 Lemma test : main' (take 11 small_data) = result.
 Proof.
 rewrite /main' /main /small_data.
 set w := muln _ _; compute in w; rewrite /w {w}.
 set w := init _ _ _ _ _; compute in w; rewrite /w {w}.
-
-do 4 (rewrite fortune_step;
-rewrite expand_event_kind;
-((rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _; compute in w;
-rewrite /w {w}) ||
-(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _; compute in w;
-rewrite /w {w}));
-rewrite expand_res1 expand_res2 expand_res3).
-
-do 4 (rewrite fortune_step;
-rewrite expand_event_kind;
-((rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _; compute in w;
-rewrite /w {w}) ||
-(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _; compute in w;
-rewrite /w {w}));
-rewrite expand_res1 expand_res2 expand_res3).
-
-do 1 (rewrite fortune_step;
-rewrite expand_event_kind;
-((rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _; compute in w;
-rewrite /w {w}) ||
-(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _; compute in w;
-rewrite /w {w}));
-rewrite expand_res1 expand_res2 expand_res3).
-
-do 1 (rewrite fortune_step;
-rewrite expand_event_kind;
-((rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _; compute in w;
-rewrite /w {w}) ||
-(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _; compute in w;
-rewrite /w {w}));
-rewrite expand_res1 expand_res2 expand_res3).
-
-do 2 (rewrite fortune_step;
-rewrite expand_event_kind;
-((rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _; compute in w;
-rewrite /w {w}) ||
-(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _; compute in w;
-rewrite /w {w}));
-rewrite expand_res1 expand_res2 expand_res3).
-
-do 2 (rewrite fortune_step;
-rewrite expand_event_kind;
-((rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _; compute in w;
-rewrite /w {w}) ||
-(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _; compute in w;
-rewrite /w {w}));
-rewrite expand_res1 expand_res2 expand_res3).
-
-do 2 (rewrite fortune_step;
-rewrite expand_event_kind;
-((rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _; compute in w;
-rewrite /w {w}) ||
-(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _; compute in w;
-rewrite /w {w}));
-rewrite expand_res1 expand_res2 expand_res3).
-
-do 1 (rewrite fortune_step;
-rewrite expand_event_kind;
-((rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _; compute in w;
-rewrite /w {w}) ||
-(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _; compute in w;
-rewrite /w {w}));
-rewrite expand_res1 expand_res2 expand_res3).
-
-do 1 (rewrite fortune_step;
-rewrite expand_event_kind;
-((rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _; compute in w;
-rewrite /w {w}) ||
-(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _; compute in w;
-rewrite /w {w}));
-rewrite expand_res1 expand_res2 expand_res3).
-(* Here is the bug: processing a circle event with
-  (-8 # 1, 7 # 1) (-2 # 1, 1), and (6 # 1, 3 # 1), but these points
-  don't have an arc on the beach line.  Where does this event come from? *)
-do 1 (rewrite fortune_step;
-rewrite expand_event_kind;
-((rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _; compute in w;
-rewrite /w {w}) ||
-(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _; compute in w;
-rewrite /w {w}));
-rewrite expand_res1 expand_res2 expand_res3).
-set bl := [:: _ & _].
-set es := [:: (_, _, (_, _), (_, _), (_, _), false) & _].
-rewrite fortune_step expand_event_kind -/handle_site_event'.
-set q := [:: _ & _].
+do 4 (rewrite fortune_step expand_event_kind;
+(rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _;
+   compute in w; rewrite /w {w}) ||
+(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _;
+   compute in w; rewrite /w {w}); rewrite ?expand_res1 ?expand_res2 ?expand_res3 ?expand_res4).
+do 4 (rewrite fortune_step expand_event_kind;
+(rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _;
+   compute in w; rewrite /w {w}) ||
+(rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _;
+   compute in w; rewrite /w {w}); rewrite ?expand_res1 ?expand_res2 ?expand_res3 ?expand_res4).
 compute.
 reflexivity.
 Qed.
