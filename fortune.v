@@ -68,9 +68,9 @@ Open Scope a_scope.
 (*======================== Data Structures : =============================== *)
 
 (* Point *)
-Record point := Point {x : R; y : R}.
-Notation "p .x" := (x p) ( at level 60).
-Notation "p .y" := (y p) ( at level 60).
+Record point := Point {coordx : R; coordy : R}.
+Notation "p .x" := (coordx p) ( at level 60).
+Notation "p .y" := (coordy p) ( at level 60).
 
 Definition point_eq (p1 p2 : point) : bool :=
   (p1.x == p2.x) && (p1.y == p2.y).
@@ -706,19 +706,19 @@ Definition print_Q_approximate (r : Q) :=
 Definition print_Q := print_Q_approximate.
 
 Definition print_point (p : point Q) :=
-  append (print_Q (x p))
-  (append " "%string (append (print_Q (y p)) " "%string)).
+  append (print_Q (coordx p))
+  (append " "%string (append (print_Q (coordy p)) " "%string)).
 
 Definition compute_break_point (swp : Q) (p1 p2 : point Q) :=
     let f_x := pick_sol' 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool
               Qnatmul Qexp p1 p2 swp in
     Point (f_x)
-        (if Qeq_bool (x p1) swp then
-                 (f_x - x p2) ^ 2 / ((2 # 1) * (y p2 - swp)) +
-                 (y p2 + swp) / (2 # 1)
+        (if Qeq_bool (coordy p1) swp then
+                 (f_x - coordx p2) ^ 2 / ((2 # 1) * (coordy p2 - swp)) +
+                 (coordy p2 + swp) / (2 # 1)
                else
-                 (f_x - x p1) ^ 2 / ((2 # 1) * (y p1 - swp)) +
-                 (y p1 + swp) / (2 # 1)).
+                 (f_x - coordx p1) ^ 2 / ((2 # 1) * (coordy p1 - swp)) +
+                 (coordy p1 + swp) / (2 # 1)).
 
 Definition print_edge (swp : Q) (e : edge Q) :=
   if complete e then
@@ -759,25 +759,25 @@ Definition draw_parabola (dir_y focal_x focal_y st fin : Q) : string :=
      print_Q p_2_y ++ print_Q fin ++ print_Q fn_y ++ 
     "c " ++ eol.
    
-Fixpoint display_beach_rec (y : Q) (prev : Q)
+Fixpoint display_beach_rec (swp : Q) (prev : Q)
   (l : seq (arc Q)) trailer : string :=
   match l with
     nil => trailer
   | Arc (Point x_0 y_0) _ :: nil =>
-    draw_parabola y x_0 y_0 prev (prev + (y - y_0)) ++ trailer
+    draw_parabola swp x_0 y_0 prev (prev + (swp - y_0)) ++ trailer
   | Arc (Point x_0 y_0) _ :: (Arc (Point x_1 y_1) _ :: _) as tl =>
-    let bp := compute_break_point y (Point x_0 y_0) (Point x_1 y_1) in
-    if Qeq_bool y y_0 then
+    let bp := compute_break_point swp (Point x_0 y_0) (Point x_1 y_1) in
+    if Qeq_bool swp y_0 then
       ("% site" ++ eol ++ print_point (Point x_0 y_0) ++ "m " ++
        print_point bp ++ "l " ++ eol ++
-      display_beach_rec y x_0 tl trailer)%string
+      display_beach_rec swp x_0 tl trailer)%string
     else
-    (draw_parabola y x_0 y_0 prev (x bp) ++
-     display_beach_rec y (x bp) tl trailer)%string
+    (draw_parabola swp x_0 y_0 prev (coordx bp) ++
+     display_beach_rec swp (coordx bp) tl trailer)%string
   end.
 
-Definition display_beach_line (y : Q) (l : seq (arc Q)) trailer : string :=
-let y_s := print_Q y  in
+Definition display_beach_line (swp : Q) (l : seq (arc Q)) trailer : string :=
+let y_s := print_Q swp  in
 " stroke 0 0 0.5 setrgbcolor  -100000 " ++ y_s ++ "m 100000 " ++ y_s ++
 " l stroke 0.5 0 0 setrgbcolor" ++ eol ++
 match l with
@@ -787,12 +787,12 @@ match l with
   print_Q x_0 ++ print_Q (y_0 - (100 # 1)) ++ "l " ++ trailer
 | Arc (Point x_0 y_0) _ :: (Arc (Point x_1 y_1) _ :: _) as tl =>
   let x_2 := pick_sol' 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool Qnatmul Qexp
-              (Point x_0 y_0) (Point x_1 y_1) y in
+              (Point x_0 y_0) (Point x_1 y_1) swp in
   let x_3 := (x_2 - (100 # 1)) in
-  let y_3 := compute_parabola y x_0 y_0 x_3 in
+  let y_3 := compute_parabola swp x_0 y_0 x_3 in
   (print_Q x_3 ++ print_Q y_3 ++ " m " ++
-  draw_parabola y x_0 y_0 x_3 x_2 ++
-  display_beach_rec y x_2 tl trailer)
+  draw_parabola swp x_0 y_0 x_3 x_2 ++
+  display_beach_rec swp x_2 tl trailer)
 end.
 
 Fixpoint animate_fortune (n : nat) bl eds q :
@@ -871,32 +871,14 @@ Definition small_data := [:: (-10#1, -10#1); (5#1, -6#1); (-2#1, 1#1);
 Definition data2 := [::  (-(10#1), -(10#1)); (5#1, 0#1); (0#1, 2#1);
                        (-(2#1), 8#1); (8#1, 13#1); (-9#1, 15#1); (100#1, 40#1)].
 
-Compute main' 
-  (map (fun p => Point (fst p) (snd p)) small_data).
+(*Compute main' 
+  (map (fun p => Point (fst p) (snd p)) small_data). *)
 
-Section tt.
-
-Variable bad : Q -> Prop.
-
-Variable c1 : (forall x, (bad x -> False) -> bad x).
-
-Variable bad_ind : forall P : Q -> Prop,
-  (forall x, (bad x -> False) -> (P x -> False) -> P x) ->
-  forall x, bad x -> P x.
-
-Lemma inc : False.
-Proof.
-assert (main: forall x, bad x -> False).
-intros x; apply (@bad_ind (fun x => False)).
-intros x0 step _; apply step.
-apply c1; apply step.
-apply (main 0).
-apply c1, main.
-Qed.
+Compute List.length small_data.
 
 Compute animate 23 (take 11 (map (fun p => (Point (fst p) (snd p))) small_data)).
 
-Compute animate 12 (map (fun p => (Point (fst p) (snd p))) data2).
+(* Compute animate 12 (map (fun p => (Point (fst p) (snd p))) data2). *)
 
 (* Compute display_final small_data. *)
 
@@ -924,7 +906,7 @@ Definition q1 :=
     (map (fun p => Point (fst p) (snd p)) (behead small_data)) nil.
 
 Definition dsquare (p1 p2 : point Q) :=
-  (x p1 - x p2) ^ 2 + (y p1 - y p2) ^ 2.
+  (coordx p1 - coordx p2) ^ 2 + (coordy p1 - coordy p2) ^ 2.
 
 Compute result.
 
@@ -967,5 +949,3 @@ do 4 (rewrite fortune_step expand_event_kind;
 compute.
 reflexivity.
 Qed.
-
-End tt.
