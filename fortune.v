@@ -67,10 +67,9 @@ Open Scope a_scope.
 (*======================== Data Structures : =============================== *)
 
 (* Point *)
-Definition point          : Type := (R * R)%type.
-Definition Point(x y : R) : point := (x, y).
-Notation "p .x" := (fst p) ( at level 60).
-Notation "p .y" := (snd p) ( at level 60).
+Record point := Point {x : R; y : R}.
+Notation "p .x" := (x p) ( at level 60).
+Notation "p .y" := (y p) ( at level 60).
 
 Definition point_eq (p1 p2 : point) : bool :=
   (p1.x == p2.x) && (p1.y == p2.y).
@@ -276,10 +275,10 @@ Definition bisector ( p1 p2 : point) : R * point :=
 Definition line_intersection  ( l1 l2 : R * point) : point :=
   (* l1 : a1*x + b1*x = c1 *)
   (* l2 : a2*x + b2*x = c2 *)
-  let a1 := ( fst ( snd l1 )) in
-  let b1 := ( snd ( snd l1 )) in
-  let a2 := ( fst ( snd l2 )) in
-  let b2 := ( snd ( snd l2 )) in
+  let a1 := (snd l1 ).x in
+  let b1 := (snd l1 ).y in
+  let a2 := (snd l2 ).x in
+  let b2 := (snd l2 ).y in
   let c1 := fst l1            in
   let c2 := fst l2            in
   let x  := ( (c1*b2 - b1*c2) / (a1*b2 - b1*a2) ) in
@@ -714,18 +713,19 @@ Definition print_Q_approximate (r : Q) :=
 Definition print_Q := print_Q_approximate.
 
 Definition print_point (p : point Q) :=
-  append (print_Q (fst p))
-  (append " "%string (append (print_Q (snd p)) " "%string)).
+  append (print_Q (x p))
+  (append " "%string (append (print_Q (y p)) " "%string)).
 
 Definition compute_break_point (swp : Q) (p1 p2 : point Q) :=
     let f_x := pick_sol' 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool
               Qnatmul Qexp p1 p2 swp in
-    (f_x, if Qeq_bool (snd p1) swp then
-                 (f_x - fst p2) ^ 2 / ((2 # 1) * (snd p2 - swp)) +
-                 (snd p2 + swp) / (2 # 1)
+    Point (f_x)
+        (if Qeq_bool (x p1) swp then
+                 (f_x - x p2) ^ 2 / ((2 # 1) * (y p2 - swp)) +
+                 (y p2 + swp) / (2 # 1)
                else
-                 (f_x - fst p1) ^ 2 / ((2 # 1) * (snd p1 - swp)) +
-                 (snd p1 + swp) / (2 # 1)).
+                 (f_x - x p1) ^ 2 / ((2 # 1) * (y p1 - swp)) +
+                 (y p1 + swp) / (2 # 1)).
 
 Definition print_edge (swp : Q) (e : edge Q) :=
   if snd e then
@@ -770,17 +770,17 @@ Fixpoint display_beach_rec (y : Q) (prev : Q)
   (l : seq (arc Q)) trailer : string :=
   match l with
     nil => trailer
-  | ((x_0, y_0), _) :: nil =>
+  | (Point x_0 y_0, _) :: nil =>
     draw_parabola y x_0 y_0 prev (prev + (y - y_0)) ++ trailer
-  | ((x_0, y_0), _) :: (((x_1, y_1), _) :: _) as tl =>
-    let bp := compute_break_point y (x_0, y_0) (x_1, y_1) in
+  | (Point x_0 y_0, _) :: ((Point x_1 y_1, _) :: _) as tl =>
+    let bp := compute_break_point y (Point x_0 y_0) (Point x_1 y_1) in
     if Qeq_bool y y_0 then
-      ("% site" ++ eol ++ print_point (x_0, y_0) ++ "m " ++
+      ("% site" ++ eol ++ print_point (Point x_0 y_0) ++ "m " ++
        print_point bp ++ "l " ++ eol ++
       display_beach_rec y x_0 tl trailer)%string
     else
-    (draw_parabola y x_0 y_0 prev (fst bp) ++
-     display_beach_rec y (fst bp) tl trailer)%string
+    (draw_parabola y x_0 y_0 prev (x bp) ++
+     display_beach_rec y (x bp) tl trailer)%string
   end.
 
 Definition display_beach_line (y : Q) (l : seq (arc Q)) trailer : string :=
@@ -789,12 +789,12 @@ let y_s := print_Q y  in
 " l stroke 0.5 0 0 setrgbcolor" ++ eol ++
 match l with
 | nil => trailer
-| ((x_0, y_0), _):: nil =>
+| (Point x_0 y_0, _):: nil =>
   print_Q x_0 ++ print_Q y_0 ++ "m " ++
   print_Q x_0 ++ print_Q (y_0 - (100 # 1)) ++ "l " ++ trailer
-| ((x_0, y_0), _) :: (((x_1, y_1), _) :: _) as tl =>
+| (Point x_0 y_0, _) :: ((Point x_1 y_1, _) :: _) as tl =>
   let x_2 := pick_sol' 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool Qnatmul Qexp
-              (x_0, y_0) (x_1, y_1) y in
+              (Point x_0 y_0) (Point x_1 y_1) y in
   let x_3 := (x_2 - (100 # 1)) in
   let y_3 := compute_parabola y x_0 y_0 x_3 in
   (print_Q x_3 ++ print_Q y_3 ++ " m " ++
@@ -858,8 +858,8 @@ Definition Qmax (a b : Q) := if Qle_bool a b then b else a.
 Fixpoint cmpt_max_y (l : seq (edge Q)) val :=
 match l with
   [::] => val
-| a :: tl => cmpt_max_y tl (Qmax (snd (fst (fst (fst (fst a)))))
-                          (Qmax (snd (snd (fst (fst (fst a))))) val))
+| a :: tl => cmpt_max_y tl (Qmax (y (fst (fst (fst (fst a)))))
+                          (Qmax (y (snd (fst (fst (fst a))))) val))
 end.
 
 Definition display_final (ps : seq (point Q)) : string :=
@@ -885,7 +885,8 @@ Definition small_data := [:: (-10#1, -10#1); (5#1, -6#1); (-2#1, 1#1);
 Definition data2 := [::  (-(10#1), -(10#1)); (5#1, 0#1); (0#1, 2#1);
                        (-(2#1), 8#1); (8#1, 13#1); (-9#1, 15#1); (100#1, 40#1)].
 
-Compute main' small_data.
+Compute main' 
+  (map (fun p => Point (fst p) (snd p)) small_data).
 
 Section tt.
 
@@ -907,13 +908,13 @@ apply (main 0).
 apply c1, main.
 Qed.
 
-Compute animate 23 (take 11 small_data).
+Compute animate 23 (take 11 (map (fun p => (Point (fst p) (snd p))) small_data)).
 
-Compute animate 12 data2.
+Compute animate 12 (map (fun p => (Point (fst p) (snd p))) data2).
 
 (* Compute display_final small_data. *)
 
-Definition result :=  main' small_data.
+Definition result :=  main' (map (fun p => Point (fst p) (snd p)) small_data).
 Compute result.
 
 Definition handle_site_event' :=
@@ -930,15 +931,14 @@ Definition check_circle_event' :=
 
 Definition init' := init Qeq_bool Qle_bool Qlt_bool.
 
-Compute init' small_data nil.
+Compute init' (map (fun p => Point (fst p) (snd p)) small_data) nil.
 
-Definition q1 := Eval compute in init' (behead small_data) nil.
+Definition q1 := 
+  Eval compute in init' 
+    (map (fun p => Point (fst p) (snd p)) (behead small_data)) nil.
 
 Definition dsquare (p1 p2 : point Q) :=
-  (fst p1 - fst p2) ^ 2 + (snd p1 - snd p2) ^ 2.
-
-Compute (dsquare (-3#1, -4#1) (0#1, 0#1)).
-Compute (dsquare (4#1, -3#1) (0#1, 0#1)).
+  (x p1 - x p2) ^ 2 + (y p1 - y p2) ^ 2.
 
 Compute result.
 
@@ -963,7 +963,7 @@ Lemma expand_res4 (A B C D : Type) (s1 : A) (s2 : B) (s3 : C) (s4 : D):
 Proof. by []. Qed.
 
 (* An example of debug session: stepping inside a proof. *)
-Lemma test : main' (take 11 small_data) = result.
+Lemma test : main' (map (fun p => Point (fst p) (snd p)) (take 11 small_data)) = result.
 Proof.
 rewrite /main' /main /small_data.
 set w := muln _ _; compute in w; rewrite /w {w}.
@@ -981,3 +981,5 @@ do 4 (rewrite fortune_step expand_event_kind;
 compute.
 reflexivity.
 Qed.
+
+End tt.
