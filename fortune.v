@@ -239,7 +239,7 @@ Definition search_beach (p1 p2 p3 : point) ( beachline : seq arc): nat :=
 
 Definition search_edges (edges : seq edge) (p1 p2: point) : nat :=
 (* Given a list of edges, a left site p1, right site p2 then it returns the *) 
-(* the index where p1 p2 are the sites seperated by the edge                *)
+(* index where p1 p2 are the sites seperated by the edge                *)
   find (fun x => (x.ed_l === p1) && (x.ed_r === p2)) edges.
 
 
