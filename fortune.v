@@ -46,9 +46,10 @@ Open Scope a_scope.
 (* - Beachline ==  seq Arc. The arcs in the beachline are ordered according  *)
 (*                          to their occurrences according to the x-axis.    *)
 (* - Edge (start final p_l p_r : Point) ( complete :bool)  ==                *)
-(*   + p_l p_r are the two focal points that seperated by the edge.          *)
-(*   + start & end are the end points of the edge. End may not be known,     *)
-(*                                                 its default value is (0,0)*)
+(*   + p_l p_r are the two focal points that are seperated by the edge.      *)
+(*   + start & end are the end points of the edge. the value of start is     *)
+(* always known, but the value of end may not be known, its default value    *)
+(* is (0,0)                                                                  *)
 (*   + complete indicates that the end has been discovered.                  *)
 (* - Edges == seq Edge. Not ordered                                          *)
 (* - Event (cir : bool) (p_l p_m p_r : point) (sweepline : R)                *)
@@ -83,17 +84,13 @@ Notation "p .focal"  := (focal p) ( at level 81).
 Notation "p .circle" := (circle p) ( at level 81).
 
 (* Edge *)
-Definition edge  : Type := (point * point * point * point * bool)%type.
-Definition Edge  (st  fn  s_l  s_r  : point ) ( c : bool) : edge :=
-                 (st, fn, s_l, s_r, c).
-Notation "p .complete" := (snd p) ( at level 82).
-Notation "p .ed_r"  := (snd (fst p)) ( at level 82). (* p/Right site *)
-Notation "p .ed_l"  := (snd (fst (fst p))) ( at level 82). (* Left site/p  *)
-Definition fn (e : edge) := snd (fst (fst (fst e))).
-Notation "p .fn" := (snd (fst (fst (fst p)))) ( at level 82). (* Final point *)
-Definition st (e : edge) := fst (fst (fst (fst e))).
-Notation "p .st" := (fst (fst (fst (fst p)))) ( at level 82). (* Start point *)
-
+Record edge := Edge {st : point; fn : point; ed_r : point; ed_l : point;
+               complete : bool}.
+Notation "p .complete" := (complete p) ( at level 82).
+Notation "p .ed_r"  := (ed_r p) ( at level 82). (* p/Right site *)
+Notation "p .ed_l"  := (ed_l p) ( at level 82). (* Left site/p  *)
+Notation "p .fn" := (fn p) ( at level 82). (* Final point *)
+Notation "p .st" := (st p) ( at level 82). (* Start point *)
 
 (* Event *)
 Definition event  : Type := ( bool * point * point * point * R )%type.
@@ -724,13 +721,13 @@ Definition compute_break_point (swp : Q) (p1 p2 : point Q) :=
                  (y p1 + swp) / (2 # 1)).
 
 Definition print_edge (swp : Q) (e : edge Q) :=
-  if snd e then
+  if complete e then
     append (print_point (st e)) (append "m "%string
       (append (print_point (fn e)) 
       (append "l"%string eol)))
   else
     (print_point (st e) ++ "m " ++
-    print_point (compute_break_point swp (snd (fst (fst e))) (snd (fst e))) ++
+    print_point (compute_break_point swp (ed_l e) (ed_r e)) ++
     "l " ++ eol)%string.
 
 Definition blue_point (p : point Q) :=
@@ -850,13 +847,6 @@ Definition add_infinite_edge' :=
 Definition add_infinites' := add_infinites 1 Qplus Qopp Qeq_bool Qnatmul.
 
 Definition Qmax (a b : Q) := if Qle_bool a b then b else a.
-
-Fixpoint cmpt_max_y (l : seq (edge Q)) val :=
-match l with
-  [::] => val
-| a :: tl => cmpt_max_y tl (Qmax (y (fst (fst (fst (fst a)))))
-                          (Qmax (y (snd (fst (fst (fst a))))) val))
-end.
 
 Definition display_final (ps : seq (point Q)) : string :=
   let result := main' ps in
