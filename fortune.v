@@ -263,17 +263,17 @@ Definition direction ( p1 p2 : point) : point :=
 
 Definition dot_prod ( p1 p2 : point) : R :=  (p1.x)*(p2.x) + (p1.y)*(p2.y).
 
-Definition line (n p : point ) : R*point := 
+Definition line (n p : point ) : R * point := 
   (* l : n . (x - x0) = 0 => n.x = n.x0, we keep n.x0 and n *) 
   ( dot_prod n p, n).
 
-Definition bisector ( p1 p2 : point) : R*point :=
+Definition bisector ( p1 p2 : point) : R * point :=
   (* The line that passes through (midpoint p1 p2), *) 
   (*  and normal to (direction p1 p2)               *)
   line (direction p1 p2) (midpoint p1 p2).
 
 
-Definition line_intersection  ( l1 l2 : R*point) : point :=
+Definition line_intersection  ( l1 l2 : R * point) : point :=
   (* l1 : a1*x + b1*x = c1 *)
   (* l2 : a2*x + b2*x = c2 *)
   let a1 := ( fst ( snd l1 )) in
