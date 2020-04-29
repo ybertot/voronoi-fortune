@@ -78,13 +78,9 @@ Notation "p1 === p2" := (point_eq p1 p2)
   (at level 70, no associativity) : a_scope.
 
 (* Arc *)
-Definition arc   : Type := (point * bool)%type.
-Definition Arc (p: point) ( c : bool) : arc := (p, c).
-Definition focal (p : arc) := fst p.
-
-Notation "p .focal"  := (focal p) ( at level 81).  (* same as p.x *)
-Notation "p .circle" := (snd p) ( at level 81). (* Do I need to define another *)
-                                            (* fst, so focal & x are disjoint?*) 
+Record arc := Arc {focal : point; circle : bool}.
+Notation "p .focal"  := (focal p) ( at level 81).
+Notation "p .circle" := (circle p) ( at level 81).
 
 (* Edge *)
 Definition edge  : Type := (point * point * point * point * bool)%type.
@@ -626,7 +622,7 @@ Definition add_infinite_edge (p1 p2 : point) (es : seq edge) : seq edge :=
 
 Fixpoint add_infinites (bl : seq arc) (es : seq edge) : seq edge :=
   match bl with
-  | (a, _) :: ((b, _) :: _) as tl =>
+  | Arc a _ :: (Arc b _ :: _) as tl =>
     add_infinites tl (add_infinite_edge a b es)
   | _ => es
   end.
@@ -770,9 +766,9 @@ Fixpoint display_beach_rec (y : Q) (prev : Q)
   (l : seq (arc Q)) trailer : string :=
   match l with
     nil => trailer
-  | (Point x_0 y_0, _) :: nil =>
+  | Arc (Point x_0 y_0) _ :: nil =>
     draw_parabola y x_0 y_0 prev (prev + (y - y_0)) ++ trailer
-  | (Point x_0 y_0, _) :: ((Point x_1 y_1, _) :: _) as tl =>
+  | Arc (Point x_0 y_0) _ :: (Arc (Point x_1 y_1) _ :: _) as tl =>
     let bp := compute_break_point y (Point x_0 y_0) (Point x_1 y_1) in
     if Qeq_bool y y_0 then
       ("% site" ++ eol ++ print_point (Point x_0 y_0) ++ "m " ++
@@ -789,10 +785,10 @@ let y_s := print_Q y  in
 " l stroke 0.5 0 0 setrgbcolor" ++ eol ++
 match l with
 | nil => trailer
-| (Point x_0 y_0, _):: nil =>
+| Arc (Point x_0 y_0) _:: nil =>
   print_Q x_0 ++ print_Q y_0 ++ "m " ++
   print_Q x_0 ++ print_Q (y_0 - (100 # 1)) ++ "l " ++ trailer
-| (Point x_0 y_0, _) :: ((Point x_1 y_1, _) :: _) as tl =>
+| Arc (Point x_0 y_0) _ :: (Arc (Point x_1 y_1) _ :: _) as tl =>
   let x_2 := pick_sol' 1 Qplus Qmult Qopp Qinv Qsqrt Qeq_bool Qle_bool Qnatmul Qexp
               (Point x_0 y_0) (Point x_1 y_1) y in
   let x_3 := (x_2 - (100 # 1)) in
