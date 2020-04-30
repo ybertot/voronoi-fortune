@@ -84,7 +84,7 @@ Notation "p .focal"  := (focal p) ( at level 81).
 Notation "p .circle" := (circle p) ( at level 81).
 
 (* Edge *)
-Record edge := Edge {st : point; fn : point; ed_r : point; ed_l : point;
+Record edge := Edge {st : point; fn : point; ed_l : point; ed_r : point;
                complete : bool}.
 Notation "p .complete" := (complete p) ( at level 82).
 Notation "p .ed_r"  := (ed_r p) ( at level 82). (* p/Right site *)
