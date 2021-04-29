@@ -278,14 +278,9 @@ Definition line_intersection  ( l1 l2 : R * point) : point :=
   let y  := ( (a1*c2 - c1*a2) / (a1*b2 - b1*a2) ) in
   Point x y.
 
-Definition collinear ( p1 p2 p3 : point ): bool :=   
-  if       (p1 === p2) || (p2 === p3) || (p3 === p1)       then true
-  else if  ( (p1.y)  ==  (p2.y) ) && ( (p2.y) ==  (p3.y) ) &&
-           ( (p3.y)  ==   0%:R  )                       then true
-  else if  ( ((p1.x) / (p1.y))  ==  ((p2.x) / (p2.y)) )    &&
-           ( ((p2.x) / (p2.y))  ==  ((p3.x) / (p3.y)) ) then true
-  else false.
-
+Definition collinear ( p1 p2 p3 : point ) : bool :=
+  (p2.y + (opp (p1.y))) * (p3.x + (- (p1.x))) ==
+  (p3.y + (- (p1.y))) * (p2.x + (- (p2.x))).
 
 Definition circumcenter ( p1 p2 p3 : point ) : point :=
   let    midp1p2 := midpoint p1 p2 in
@@ -349,8 +344,8 @@ Definition pick_sol (p1 p2 : point) (y0 : R) : R :=
 (* this function returns the x coordinate of the intersection between
    the parabolas with focal point p1 and p2 when the sweep line is
    horizontally placed at ordinate y0.  The intersction that is chosen,
-   is the one that has the parabola for p1 on the left the parabola for
-   p2 on the right. *)
+   is the one that has the parabola for p1 above on the left and
+   the parabola for p2 above on the right. *)
   let midx := (p1.x + (p2.x)) / 2%:R in
   if p1.y == p2.y then midx
   else
@@ -364,6 +359,11 @@ Definition pick_sol (p1 p2 : point) (y0 : R) : R :=
       (- C - sqrtr discr) / 2%:R
     else (- C + sqrtr discr) / 2%:R.
 
+(* if  p1 has the same y coordinate as the sweep line, then the
+  parabola for p1 is degenerate (a vertical half line.  In
+  this case the intersection with the parabola with focal
+  p2 can only have the same x coordinate as p1.  The same
+  reasoning holds symmetrically for p2.  *)
 Definition pick_sol' (p1 p2 : point) (y0 : R) : R :=
   if p1.y == y0 then p1.x else
   if p2.y == y0 then p2.x else
@@ -940,7 +940,8 @@ do 4 (rewrite fortune_step expand_event_kind;
 (rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _;
    compute in w; rewrite /w {w}) ||
 (rewrite -/handle_circle_event'; set w := handle_circle_event' _ _ _ _;
-   compute in w; rewrite /w {w}); rewrite ?expand_res1 ?expand_res2 ?expand_res3 ?expand_res4).
+                                          compute in w; rewrite /w {w});
+rewrite ?expand_res1 ?expand_res2 ?expand_res3 ?expand_res4).
 do 4 (rewrite fortune_step expand_event_kind;
 (rewrite -/handle_site_event'; set w := handle_site_event' _ _ _ _;
    compute in w; rewrite /w {w}) ||
