@@ -6,9 +6,6 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-Locate ":>".
-
-
 Section ab1.
 
 Variable R : rcfType.
@@ -40,7 +37,7 @@ Open Scope ring_scope.
 (*   + pop removes the head of Q and return (h, Q-h)                         *)
 (* - Dummy instances were defined to deal with the base cases                *)
 (* - Sweepline is defined implicitly and it moves from bottom to top.        *)
-(* - Arc_ind (i1, i2, both ) tells whether a site lies above two arcs or     *)
+(* - Arc_index (i1, i2, both ) tells whether a site lies above two arcs or   *)
 (*   an arc. Also, i1 and i2 are the arc indices in the beachline.           *)
 (*****************************************************************************)
 
@@ -63,34 +60,77 @@ Definition less (p1 p2 : point) : bool :=
   if geq p1 p2 then false else true.
 
 (* Arc *)
-Definition arc   : Type := (point * bool)%type.
-Definition Arc (p: point) ( c : bool) : arc := (p, c).
-Notation "p .focal"  := (fst p) ( at level 81).  (* same as p.x *)
-Notation "p .circle" := (snd p) ( at level 81). (* Do I need to define another *)
-                                            (* fst, so focal & x are disjoint?*) 
+Inductive arc : Type :=
+  Arc (p : point) (c : bool).
+
+Definition focal (a : arc) := let: Arc p c := a in p.
+Definition circle (a : arc) := let: (Arc p c) := a in c.
+
+Definition arc_eqb (a1 a2 : arc) : bool :=
+  (focal a1 == focal a2) && (circle a1 == circle a2).
+
+Lemma arc_eqP : Equality.axiom arc_eqb.
+move=> [a_f a_c] [b_f b_c] /=.
+have [/eqP <-| /negbTE anb] := boolP(a_f == b_f).
+  have [/eqP <- | /negbTE anb] := boolP(a_c == b_c).
+    rewrite /arc_eqb /= !eqxx.
+    by apply: ReflectT.
+  rewrite /arc_eqb /= anb andbF.
+  by apply : ReflectF=> [][] /eqP; rewrite anb.
+rewrite /arc_eqb /= anb /=.
+by apply: ReflectF=> [][] /eqP; rewrite anb.
+Qed.
+
+Canonical arc_eqType := EqType arc (EqMixin arc_eqP).
+Notation "p .focal"  := (focal p) ( at level 81).
+Notation "p .circle" := (circle p) ( at level 81).
 
 (* Edge *)
-Definition edge  : Type := (point * point * point * point * bool)%type.
-Definition Edge  (st  fn  s_l  s_r  : point ) ( c : bool) : edge :=
-                 (st, fn, s_l, s_r, c).
-Notation "p .complete" := (snd p) ( at level 82).
-Notation "p .r"  := (snd (fst p)) ( at level 82). (* p/Right site *)
-Notation "p .l"  := (snd (fst (fst p))) ( at level 82). (* Left site/p  *)
-Notation "p .fn" := (snd (fst (fst (fst p)))) ( at level 82). (* Final point *)
-Notation "p .st" := (fst (fst (fst (fst p)))) ( at level 82). (* Start point *)
-
+Inductive edge  : Type := 
+  Edge (st fn s_l s_r : point) (c : bool).
+Definition complete (e : edge) :=
+  let: Edge _ _ _ _ c := e in c.
+Notation "p .complete" := (complete p) ( at level 82).
+Definition s_r (e : edge) :=
+  let: Edge _ _ _ s_r _ := e in s_r.
+Notation "p .r"  := (s_r p) ( at level 82).
+Definition s_l (e : edge) :=
+  let: Edge _ _ s_l _ _ := e in s_l.
+Notation "p .l"  := (s_l p) ( at level 82).
+Definition final (e : edge) :=
+  let: Edge _ fn _ _ _ := e in s_r.
+Notation "p .fn" := (final p) ( at level 82). (* Final point *)
+Definition start (e : edge) :=
+  let: Edge st _ _ _ _ := e in s_r.
+Notation "p .st" := (start p) ( at level 82). (* Start point *)
 
 (* Event *)
-Definition event  : Type := ( bool * point * point * point * R )%type.
-Definition Event  (b : bool) ( p_m  p_l  p_r : point) ( sweepline : R) : event :=
-                  (b, p_l, p_m, p_r, sweepline).
+Inductive event : Type :=
+  Event (b : bool)(p_m p_l p_r : point) (sweepline : R).
+
 Definition nulEv := Event false (Point 0%:R 1%:R) (Point 2%:R 3%:R) 
                                 (Point 4%:R 5%:R)  6%:R.
-Notation "p .swp" := (snd p) ( at level 82).             (* Sweepline   *)
-Notation "p .r"   := (snd (fst p)) ( at level 82).       (* m{Right arc *)
-Notation "p .m"   := (snd (fst (fst p))) ( at level 82). (* Left arc}m  *)
-Notation "p .l"   := (snd (fst (fst (fst p)))) ( at level 82). (* Final point *)
-Notation "p .cir" := (fst (fst (fst (fst p)))) ( at level 82). (* Start point *)
+Definition sweepline (e : event) :=
+  let: Event _ _ _ _ swp := e in swp.
+
+Definition event_right (e : event) :=
+  let: Event _ _ _ r _ := e in r.
+
+Definition event_middle (e : event) :=
+  let: Event _ _ m _ _ := e in m.
+
+Definition event_left (e : event) :=
+  let: Event _ l _ _ _ := e in l.
+
+Definition event_cir (e : event) :=
+  let: Event b _ _ _ _ := e in b.
+
+
+Notation "p .swp" := (sweepline p) ( at level 82).       (* Sweepline   *)
+Notation "p .e_r"   := (event_right p) ( at level 82).   (* m{Right arc *)
+Notation "p .e_m"   := (event_middle p) ( at level 82).  (* Left arc}m  *)
+Notation "p .e_l"   := (event_left p) ( at level 82).    (* Final point *)
+Notation "p .cir" := (event_cir p) ( at level 82).       (* Start point *)
 (* cir  is an unfortunate notation *)
 
 
@@ -98,7 +138,7 @@ Notation "p .cir" := (fst (fst (fst (fst p)))) ( at level 82). (* Start point *)
 Fixpoint push (e : event) ( s : seq event) : seq event   := 
   match s with 
   | [::] => [:: e]
-  | h::t =>  if  ( geq (h.m)  (e.m) ) then (* The y-coordinate of the site *)
+  | h::t =>  if  ( geq (h.e_m)  (e.e_m) ) then (* The y-coordinate of the site *)
               e :: h :: t
              else push e t
   end.
@@ -106,16 +146,16 @@ Definition pop   ( s : seq event) := ( head nulEv s, drop 1 s).
 Definition empty ( s : seq event) := if size s is 0 then true else false.
 
 
-(* Arc_ind  *)
-Definition arc_ind : Type    := (nat * nat * bool ).
-Definition Arc_ind (ind1 ind2: nat) ( both : bool) : arc_ind := 
+(* Arc_index  *)
+Definition arc_index : Type    := (nat * nat * bool ).
+Definition Arc_index (ind1 ind2: nat) ( both : bool) : arc_index := 
                    (ind1, ind2, both ).
 Notation "p .both" := (snd p) (at level 84).
 Notation "p .ind2" := (snd ( fst p)) (at level 84).
 Notation "p .ind1" := (fst ( fst p)) (at level 84).
-(* Eval compute in Arc_ind 1 2 true .*)
-Definition add_ind ( i1 i2 : arc_ind) := 
-  Arc_ind ((i1.ind1) + (i2.ind1)) ( (i1.ind2) + (i2.ind2)) 
+(* Eval compute in Arc_index 1 2 true .*)
+Definition add_ind ( i1 i2 : arc_index) := 
+  Arc_index ((i1.ind1) + (i2.ind1)) ( (i1.ind2) + (i2.ind2)) 
           ( orb (i1.both)  (i2.both)).
 Definition is_empty T ( s : seq T) : bool := 
   match s with [::] => true | h::t => false end.
@@ -191,7 +231,7 @@ Definition search_beach (p1 p2 p3 : point) ( beachline : seq arc): nat :=
 Definition search_edges (edges : seq edge) (p1 p2: point) : nat :=
 (* Given a list of edges, a left site p1, right site p2 then it returns the *) 
 (* the index where p1 p2 are the sites seperated by the edge                *)
-  let trunc_edges := map (fun x => ((x.l) , (x.r)) ) edges in
+  let trunc_edges := (map (fun x => ((x.l) , (x.r)) ) edges : seq (point * point))in
   index (p1, p2) trunc_edges .
 
 
@@ -303,10 +343,10 @@ Definition before (p1 p2 p : point) : bool*bool :=
 
 
 Fixpoint search_veritcal (beachline  : seq arc) (q : point) {struct  beachline}
-                         :  arc_ind  :=
+                         :  arc_index  :=
 
-  let one  := Arc_ind 1 1 false in
-  let zero := Arc_ind 0 0 false in
+  let one  := Arc_index 1 1 false in
+  let zero := Arc_index 0 0 false in
 
   match beachline with
   | [::] => zero 
@@ -314,8 +354,8 @@ Fixpoint search_veritcal (beachline  : seq arc) (q : point) {struct  beachline}
               | [::] => zero
               | h2 :: t2 =>
                             let b := before (h1.focal) (h2.focal) q in
-                            if (b.1) && (b.2) then Arc_ind 1 2 true
-                            else if (b.1)     then Arc_ind 1 1 false
+                            if (b.1) && (b.2) then Arc_index 1 2 true
+                            else if (b.1)     then Arc_index 1 1 false
                             else add_ind one  (search_veritcal   t  q )
                end
    end.
