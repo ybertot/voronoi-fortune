@@ -223,7 +223,7 @@ Fixpoint intersect_poly_aux (pt1 : R ^ 2) (pts : seq (R ^ 2)) (swp : R)
   match pts with
   | nil => acc
   | pt2 :: tl => ((parabola (p_x pt1) (p_y pt1) swp) -
-            (parabola (p_x pt2) (p_y pt2) swp)) ^+ 2  *
+            (parabola (p_x pt2) (p_y pt2) swp))  *
            intersect_poly_aux pt1 tl swp acc
   end.
 
@@ -250,7 +250,7 @@ elim: pts P => [ | p2 tl Ih] // P.
 move=> p'; rewrite inE=> /orP[/eqP p'p2 | p'np2].
   rewrite p'p2 {p' p'p2} /parabola' => y /eqP pyp2y /=.
   rewrite rootM; apply/orP; left.
-  by apply/rootPt; rewrite hornerE hornerD !hornerN pyp2y subrr mul0r eqxx.
+  by apply/rootPt; rewrite hornerE pyp2y hornerN subrr.
 move=> y pyp'y /=.
 rewrite rootM; apply/orP; right.
 by apply: (Ih P _ p'np2).
@@ -325,7 +325,12 @@ Lemma intersect_poly_aux_non0 p pts swp P :
   p_x p != swp -> all (fun p2 => p_x p2 != swp) pts ->
   intersect_poly_aux p pts swp P != 0.
 Proof.
-elim: pts => [ | p2 tl Ih].
+elim: pts => [ | p2 tl Ih]; first by [].
+rewrite inE /= negb_or => /andP[] p2nin utl /andP[] pnp2 pnin Pn0 pns.
+move=> /andP[] p2ns allns.
+rewrite mulf_eq0 negb_or; apply/andP; split; last by apply: Ih.
+by rewrite subr_eq0 -parabola_inj.
+Qed.
 
 (*** DELETE WHAT FOLLOWS ***)
 
