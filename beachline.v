@@ -229,7 +229,7 @@ Fixpoint intersect_poly_aux (pt1 : R ^ 2) (pts : seq (R ^ 2)) (swp : R)
 
 Fixpoint intersect_poly (pts : seq (R ^ 2)) (swp : R) : {poly R} :=
   match pts with
-  | nil => 1%:P
+  | nil => 1
   | a :: tl => intersect_poly_aux a tl swp (intersect_poly tl swp)
   end.
 
@@ -330,4 +330,15 @@ rewrite inE /= negb_or => /andP[] p2nin utl /andP[] pnp2 pnin Pn0 pns.
 move=> /andP[] p2ns allns.
 rewrite mulf_eq0 negb_or; apply/andP; split; last by apply: Ih.
 by rewrite subr_eq0 -parabola_inj.
+Qed.
+
+(* This is a candidate for automated proofs, especially to
+ be seen with people interested in AI. *)
+Lemma intersect_poly_non0 pts swp :
+  uniq pts -> all (fun p => p_x p != swp) pts ->
+  intersect_poly pts swp != 0.
+Proof.
+elim: pts => [ | p pts Ih]; first by rewrite /= oner_neq0.
+rewrite /= => /andP[] pnotin upts /andP[] pns allns.
+by apply: intersect_poly_aux_non0=> //; apply: Ih.
 Qed.
