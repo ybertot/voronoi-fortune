@@ -342,3 +342,28 @@ elim: pts => [ | p pts Ih]; first by rewrite /= oner_neq0.
 rewrite /= => /andP[] pnotin upts /andP[] pns allns.
 by apply: intersect_poly_aux_non0=> //; apply: Ih.
 Qed.
+
+Fixpoint discrete_beachline_aux (swp : R) (sites : seq (R ^ 2))
+   (front_sites : seq (R ^ 2)) (intersections : seq R)
+   (lower_bound : R) (first_arc : R ^ 2) :=
+  match front_sites, intersections with
+  | nil, nil =>
+    forall y : R, lower_bound <= y ->
+       beachline sites swp y = parabola' first_arc swp y
+  | f1 :: front_sites, i1 :: intersections =>
+    (forall y : R, lower_bound <= y <= i1 ->
+       beachline sites swp y = parabola' first_arc swp y) /\
+    discrete_beachline_aux swp sites front_sites intersections i1 f1
+  | _, _ => False
+  end.
+
+Definition discrete_beachline (swp : R) (sites : seq (R ^ 2))
+  (front_sites : seq (R ^ 2)) : Prop :=
+  (size sites = 1%N /\ front_sites = sites) \/
+  (0 < size front_sites)%N /\
+  (exists (i0 : R) (intersections : seq R),
+    forall y, y < i0 ->
+      beachline sites swp y =
+      parabola' (nth [ffun x => 0] front_sites 0) swp y /\
+      discrete_beachline_aux swp sites  (behead front_sites)
+        intersections i0 (nth [ffun x => 0] front_sites 0)).
