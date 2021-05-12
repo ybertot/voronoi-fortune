@@ -371,6 +371,7 @@ Definition discrete_beachline (swp : R) (sites : seq (R ^ 2))
 Lemma parabola_compare_low (p1 p2 : R ^ 2) (swp : R) :
   p_x p1 < p_x p2 < swp ->
   exists i, forall y, y < i -> parabola' p2 swp y < parabola' p1 swp y.
+(* use function pick_sol from fortune.v *)
 Admitted.
 
 Lemma first_bl_element (swp : R) (sites : seq (R ^ 2)) (e : R ^ 2) :
@@ -391,8 +392,6 @@ have : p_x e < p_x p < swp by rewrite eltp pin.
 move/parabola_compare_low => [i below_i].
 have [i'] := Ih allgt.
 rewrite /beachline /= ein => below_i'.
-exists (Order.min i i') => y ylt.
-rewrite big_cons below_i'.
-
-
-  
+exists (Order.min i i') => y; rewrite lt_minr=>/andP[] ylti ylti'.
+by rewrite big_cons below_i' // maxEle ltW // below_i.
+Qed.
