@@ -368,6 +368,47 @@ Definition discrete_beachline (swp : R) (sites : seq (R ^ 2))
       discrete_beachline_aux swp sites  (behead front_sites)
         intersections i0 (nth [ffun x => 0] front_sites 0)).
 
+
+(* compute the intersection between parabolas with focals p1 and p2 and
+  common directrix a vertical line at abscissa swp. In general there
+  are two solutions.  TODO : explain which of the two solutions is picked. *)
+Definition par_inter (p1 p2 : R ^ 2) (swp : R) : R :=
+  let midy := (p_y p1 + p_y p2) / 2%:R in
+  if p_x p1 == p_x p2 then midy
+  else
+    let midx := (p_x p1 + p_x p2) / 2%:R in
+    let B := (p_y p1 - p_y p2) / (p_x p1 - p_x p2) in
+    let A := B / (p_x p1 - p_x p2) * midy + midx in
+    let C := (B * (p_x p1 - swp) - (p_y p1)) *+ 2 in
+    let D := p_y p1 ^ 2 + (p_x p1) ^ 2 - 2%:R * A * (p_x p1 - swp) - swp ^ 2 in
+    let discr := (C ^ 2 - 4%:R * D) in
+    if p_x p1 <= p_x p2 then
+      (- C - sqrtr discr) / 2%:R
+    else (- C + sqrtr discr) / 2%:R.
+
+Lemma par_inter0 p1 p2 swp :
+  p_y p1 != p_y p2 ->
+  parabola' p1 swp (par_inter p1 p2 swp) =
+  parabola' p2 swp (par_inter p1 p2 swp).
+Proof.
+move=> ny.
+rewrite /par_inter.
+set midy := (p_y p1 + p_y p2) / 2%:R.
+have [/eqP p1p2 | p1np2] := boolP (p_x p1 == p_x p2).
+  rewrite /parabola' /parabola -p1p2 !(horner_exp, hornerE).
+  suff -> : (p_y p1 - midy) ^+ 2 = (p_y p2 - midy) ^+ 2 by [].
+  have mul2K (x : R)  : x = x * 2%:R / 2%:R by rewrite mulfK // pnatr_eq0.
+  rewrite /midy [X in (X - _) ^+ 2 = _]mul2K [X in _ = (X - _) ^+ _]mul2K.
+  rewrite -!mulrBl !mulr_natr !(mulr1, mulrS, mulr0n, addr0, addrA, opprD).
+  by rewrite addrK (addrAC _ _ (- _)) addrK -opprB mulNr sqrrN.
+case: ifP => p1lep2.
+set midx := (p_x p1 + p_x p2) / 2%:R.
+set B := (p_y p1 - p_y p2) / (p_x p1 - p_x p2).
+set A := B / (p_x p1 - p_x p2) * midy + midx.
+set C := (B * (p_x p1 - swp) - (p_y p1)) *+ 2.
+set D := p_y p1 ^ 2 + (p_x p1) ^ 2 - 2%:R * A * (p_x p1 - swp) - swp ^ 2.
+set discr := (C ^ 2 - 4%:R * D).
+
 Lemma parabola_compare_low (p1 p2 : R ^ 2) (swp : R) :
   p_x p1 < p_x p2 < swp ->
   exists i, forall y, y < i -> parabola' p2 swp y < parabola' p1 swp y.
