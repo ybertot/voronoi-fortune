@@ -367,3 +367,32 @@ Definition discrete_beachline (swp : R) (sites : seq (R ^ 2))
       parabola' (nth [ffun x => 0] front_sites 0) swp y /\
       discrete_beachline_aux swp sites  (behead front_sites)
         intersections i0 (nth [ffun x => 0] front_sites 0)).
+
+Lemma parabola_compare_low (p1 p2 : R ^ 2) (swp : R) :
+  p_x p1 < p_x p2 < swp ->
+  exists i, forall y, y < i -> parabola' p2 swp y < parabola' p1 swp y.
+Admitted.
+
+Lemma first_bl_element (swp : R) (sites : seq (R ^ 2)) (e : R ^ 2) :
+  p_x e < swp ->
+  all (fun p => p_x e < p_x p) sites ->
+  exists i0,
+   forall y,  y < i0 ->
+     beachline (e :: sites) swp y = parabola' e swp y.
+Proof.
+move=> ein; elim: sites => [ | p sites Ih].
+  by move=> _; exists 0=> y _; rewrite /beachline /= ein big_nil.
+move=> /= /andP[] eltp allgt; rewrite /beachline /= ein.
+case: ifP => [pin | pnin]; last first.
+  move: (Ih allgt) => [i0 Ih'].
+  exists i0; move=> y ilt /=.
+  by rewrite -(Ih' y ilt) /beachline /= ein.
+have : p_x e < p_x p < swp by rewrite eltp pin.
+move/parabola_compare_low => [i below_i].
+have [i'] := Ih allgt.
+rewrite /beachline /= ein => below_i'.
+exists (Order.min i i') => y ylt.
+rewrite big_cons below_i'.
+
+
+  
