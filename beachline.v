@@ -16,10 +16,10 @@ Open Scope ring_scope.
 
 Variables (R : rcfType).
 
-Definition p_x (pt : R ^ 2) := 
+Definition p_x (pt : R ^ 2) :=
   pt (Ordinal (isT : (0 < 2)%nat)).
 
-Definition p_y (pt : R ^ 2) := 
+Definition p_y (pt : R ^ 2) :=
   pt (Ordinal (isT : (1 < 2)%nat)).
 
 Lemma pt_eqP p q : reflect (p = q) ((p_x p == p_x q) && (p_y p == p_y q)).
@@ -31,7 +31,7 @@ have [/eqP xxs | nxxs] := boolP (_ == _);
   * by rewrite (@val_inj _ _ _ (Ordinal pp) (Ordinal (isT : 0 < 2)%N)).
   * by rewrite (@val_inj _ _ _ (Ordinal pp) (Ordinal (isT : 1 < 2)%N)).
 Qed.
-  
+
 Definition parabola (px py s : R) : {poly R} :=
   ((s + px) /2 %:R)%:P -
    ((py%:P - 'X) ^+ 2) * ((2 %:R * (s - px)) ^-1)%:P.
@@ -189,7 +189,7 @@ have qnq' : (q'== q)%B = false.
 rewrite qnq' /= q'notin.
 have notempty : q \in [seq p <- pts | p_x p < s].
   by move: qpt; rewrite inE eq_sym qnq' /= mem_filter qin => ->.
-have [q2 [pts' vq2]] : {q2 : R ^ 2 & {pts' : seq (R ^ 2) | 
+have [q2 [pts' vq2]] : {q2 : R ^ 2 & {pts' : seq (R ^ 2) |
          [seq p <- pts | p_x p < s] = [:: q2 & pts' ]}}.
   case filter_eq : [seq p <- pts | p_x p < s] => [ | q2 pts'].
     by move: notempty; rewrite filter_eq.
@@ -216,7 +216,7 @@ Lemma beachlineP pts s y :
   {p : R ^ 2 | (p \in [seq p <- pts | p_x p < s]) &&
    (beachline pts s y ==
      (parabola (p_x p) (p_y p) s).[y]) &&
-   all (fun w => (parabola (p_x w) (p_y w) s).[y] <= 
+   all (fun w => (parabola (p_x w) (p_y w) s).[y] <=
                  (parabola (p_x p) (p_y p) s).[y])
        [seq p <- pts | p_x p < s]}.
 Proof.
@@ -300,16 +300,16 @@ Lemma parabola_inj p1 p2 swp :
    (parabola (p_x p1) (p_y p1) swp ==
     parabola (p_x p2) (p_y p2) swp).
 Proof.
-move=> ns1 ns2. 
+move=> ns1 ns2.
 apply/idP/idP.
   by move=> /eqP ->; rewrite eqxx.
 rewrite /parabola mulrBr.
 (* Here I wish to decompose the equality between polynomials into a
   series of of equalities for each coefficient, but the coefficients
   are hidden in uses of polyC. *)
-rewrite !sqrrB. 
+rewrite !sqrrB.
 rewrite ![(_ + 'X^2) * _]mulrDl !mulrBl -!(mulr_natr (_ * _) 2).
-rewrite -!polyC_exp -!polyCM. 
+rewrite -!polyC_exp -!polyCM.
 rewrite [in X in X == _]opprD [in X in _ == X]opprD !opprB !addrA.
 rewrite [in X in X == _](addrAC (polyC _)).
 rewrite [in X in _ == X](addrAC (polyC _)) -!polyCB.
@@ -392,7 +392,7 @@ Definition discrete_beachline (swp : R) (sites : seq (R ^ 2))
 
 Definition solve_snd_degreep (a b c : R) :
   0 < a -> (exists x, (c%:P + b%:P * 'X + a%:P * 'X ^+ 2).[x] < 0) ->
- {r1 & {r2 | 
+ {r1 & {r2 | r1 < r2 /\
    (c%:P + b%:P * 'X + a%:P * 'X ^ 2).[r1] = 0 /\
    (c%:P + b%:P * 'X + a%:P * 'X ^ 2).[r2] = 0 /\
    (forall x, x < r1 \/ r2 < x -> 0 < (c%:P + b%:P * 'X + a%:P * 'X ^ 2).[x]) /\
@@ -408,7 +408,7 @@ have an0 : a != 0.
   by move: apos; rewrite lt_neqAle eq_sym=>/andP[].
 move:negval; rewrite -/l3.
 have two_vap : 0 < (a *+ 2) ^-1 by rewrite invr_gt0 pmulrn_rgt0.
-have l3eq : l3 = a%:P * (('X + (b / (a *+ 2))%:P) ^+ 2 - 
+have l3eq : l3 = a%:P * (('X + (b / (a *+ 2))%:P) ^+ 2 -
                     ((b ^+ 2 - a * c *+ 4) / ((a *+ 2) ^+ 2) )%:P).
   rewrite sqrrD !mulrDr -!addrA addrC /l3; congr (_ + _).
   rewrite !mulrA !(mulrAC _ 'X) !addrA -mulr2n -2!mulrnAl -polyCM -polyCMn.
@@ -434,6 +434,9 @@ have discr_pos : 0 < b ^+2 - a * c *+ 4.
 have frac_sqrt : ((b ^ 2 - a * c *+ 4) / ((a *+ 2) ^+ 2)) =
                  (Num.sqrt (b ^ 2 - a * c *+ 4) / (a *+ 2)) ^+ 2.
   by rewrite expr_div_n sqr_sqrtr ?ltW.
+split.
+  rewrite /r1 /r2 lter_pmul2r; last by rewrite invr_gt0 pmulrn_rgt0.
+  by rewrite ltr_add2l gt0_cp // sqrtr_gt0.
 split.
   rewrite !(horner_exp, hornerE) /r1.
   rewrite [X in (X + _) ^+2 - _]mulrBl addrAC mulNr addNr add0r sqrrN.
@@ -486,21 +489,38 @@ rewrite mulr_ge0 ?sqr_ge0 // invr_ge0 mulr_ge0 ?ler0n //.
 by rewrite subr_ge0 ltW.
 Qed.
 
-(* FIXME: add two bounds a and b so that a < v < b and the last property is:
-   (forall x, a < x < v -> parabola' p2 swp x < parabola' p1 swp x) /\
-   (forall x, v < x < b -> parabola' p1 swp x < parabola' p2 swp x) *)
-Definition par_inter (p1 p2 : R ^ 2) (swp : R) : 
-  p_x p1 < swp -> p_x p2 < swp ->
-  {v : R | (p1 != p2) ==>  (p_x p1 != p_x p2) ==>
-     (parabola' p1 swp v - parabola' p2 swp v == 0) &&
-     ((parabola' p2 swp (v - 1) < parabola' p1 swp (v - 1)) ||
-      (parabola' p1 swp (v + 1) < parabola' p2 swp (v + 1)))}.
-move=> p1lt p2lt.
-have [/= | p1np2 ] := boolP (p1 == p2).
-  by exists 0.
+Lemma parabola_diff_reorg p1 p2 swp :
+  parabola (p_x p1) (p_y p1) swp - parabola (p_x p2) (p_y p2) swp =
+  (parabola0 p1 swp - parabola0 p2 swp)%:P +
+  (parabola1 p1 swp - parabola1 p2 swp)%:P * 'X +
+  (parabola2 p1 swp - parabola2 p2 swp)%:P * 'X ^+ 2.
+Proof.
 have reorg a b c d e f g h : (a + b * g + c * h) - (d + e * g + f * h) =
    (a - d) + (b - e) * g + (c - f) * h.
   by rewrite !mulrBl !opprD !addrA 2!(addrAC _ _ (-d)) (addrAC _ _ (-(e * _))).
+by rewrite !parabolacE reorg -!polyCB.
+Qed.
+
+Lemma parabola_diff_min p1 p2 swp :
+  p_x p1 < p_x p2 < swp ->
+  parabola' p1 swp (p_y p2)  < parabola' p2 swp (p_y p2).
+Proof.
+move=> /andP[] p1p2 p2swp.
+rewrite /parabola' parabola_max.
+apply: le_lt_trans (_ : ((swp + p_x p1) / 2%:R) < _).
+  by apply/parabola_maxP/(lt_trans p1p2).
+rewrite ltr_pmul2r; last by rewrite invr_gt0 ltr0Sn.
+by rewrite ltr_add2l.
+Qed.
+
+Definition par_inter (p1 p2 : R ^ 2) (swp : R) :
+  p_x p1 < swp -> p_x p2 < swp ->
+  {v : R | (p_x p1 != p_x p2) ->
+     (parabola' p1 swp v = parabola' p2 swp v) /\
+     (exists a b, a < v < b /\
+       (forall x, a < x < v -> parabola' p2 swp x < parabola' p1 swp x) /\
+       (forall x, v < x < b -> parabola' p1 swp x < parabola' p2 swp x))}.
+move=> p1lt p2lt.
 (* FIXME: figure out how to use wlog here.
 wlog : p1 p2 p2lt p1lt p1np2 / p_x p1 < p_x p2.
   move=> one_side.
@@ -510,132 +530,92 @@ have [p1ltp2 /=| ] := boolP (p_x p1 < p_x p2); first by apply: one_side.
   rewrite eq_sym (negbTE p1np2x) /= => p2ltp1.
 *)
 have [p1ltp2 | ] := boolP(p_x p1 < p_x p2).
-  have p1np2x : p_x p1 != p_x p2.
-    by move: p1ltp2; rewrite lt_neqAle=> /andP[].
   have tmp : exists x,
     ((parabola0 p1 swp - parabola0 p2 swp)%:P +
      (parabola1 p1 swp - parabola1 p2 swp)%:P * 'X +
      (parabola2 p1 swp - parabola2 p2 swp)%:P * 'X ^+ 2).[x] < 0.
     exists (p_y p2).
-    rewrite [X in X + _ + _]polyCB [X in _ + X * _ + _]polyCB.
-    rewrite [X in _ + _ + X * _]polyCB -reorg.
-    rewrite -2!parabolacE hornerD hornerN.
-    rewrite parabola_max subr_lt0.
-    apply: le_lt_trans (_ : ((swp + p_x p1) / 2%:R) < _).
-      apply parabola_maxP => //.
-   rewrite ltr_pmul2r; last by rewrite invr_gt0 ltr0Sn.
-   by rewrite ltr_add2l.
+    rewrite -parabola_diff_reorg hornerD hornerN subr_lt0.
+    by rewrite parabola_diff_min // p1ltp2.
   have tmp2 : 0 < parabola2 p1 swp - parabola2 p2 swp.
     rewrite subr_gt0 /parabola2 ltr_oppr opprK ltf_pinv ?posrE /=.
-       rewrite ltr_pmul2l; last by rewrite ltr0Sn.
-       by rewrite ltr_add2l ltr_oppr opprK.
-     by rewrite mulr_gt0 // ?ltr0Sn ?subr_gt0.
-     by rewrite mulr_gt0 // ?ltr0Sn ?subr_gt0.
-  have [r1 [r2 [root1 [root2 [outi [ini _]]]]]] := solve_snd_degreep tmp2 tmp.  
-    exists r1; rewrite p1np2x /=.
-    apply/andP; split.
-    rewrite /parabola' -hornerN -hornerD !parabolacE.
-    rewrite 2!opprD !addrA !(addrAC _ _ (-(_%:P))) (addrAC _ _ (- (_ * 'X))).
-    rewrite -polyCB -(addrA _ _ (- (_ * 'X))) -mulrBl -polyCB.
-    by rewrite -(addrA _ _ (- _)) -mulrBl -polyCB root1.
-rewrite -subr_gt0.
-    rewrite /parabola' -hornerN -hornerD !parabolacE.
-    rewrite 2!opprD !addrA !(addrAC _ _ (-(_%:P))) (addrAC _ _ (- (_ * 'X))).
-    rewrite -polyCB -(addrA _ _ (- (_ * 'X))) -mulrBl -polyCB.
-    rewrite -(addrA _ _ (- _)) -mulrBl -polyCB.
-    by rewrite outi //; left; rewrite ltr_subl_addr cpr_add ltr01.
-    rewrite -leNgt le_eqVlt eq_sym.
+        rewrite ltr_pmul2l; last by rewrite ltr0Sn.
+        by rewrite ltr_add2l ltr_oppr opprK.
+      by rewrite mulr_gt0 // ?ltr0Sn ?subr_gt0.
+    by rewrite mulr_gt0 // ?ltr0Sn ?subr_gt0.
+  have [r1 [r2 [r1r2 [root1 [root2 [outi [ini _]]]]]]] :=
+       solve_snd_degreep tmp2 tmp.
+  exists r1=> _; split.
+    apply/eqP; rewrite -subr_eq0.
+    by rewrite /parabola' -hornerN -hornerD parabola_diff_reorg root1.
+  exists (r1 - 1); exists r2.
+  split.
+    by rewrite r1r2 ltr_subl_addl cpr_add ltr01.
+  split.
+    move=> x /andP[_ xltr1].
+    rewrite -subr_gt0.
+    by rewrite /parabola' -hornerN -hornerD parabola_diff_reorg outi //; left.
+  move=> x xint.
+  rewrite -subr_lt0.
+    by rewrite /parabola' -hornerN -hornerD parabola_diff_reorg ini.
+rewrite -leNgt le_eqVlt eq_sym.
 have [dummy //= | p1np2x /= ] := boolP(p_x p1 == p_x p2).
+  by exists 0.
 move=> p2ltp1.
-  have tmp : exists x,
+have tmp : exists x,
     ((parabola0 p2 swp - parabola0 p1 swp)%:P +
      (parabola1 p2 swp - parabola1 p1 swp)%:P * 'X +
      (parabola2 p2 swp - parabola2 p1 swp)%:P * 'X ^+ 2).[x] < 0.
-    exists (p_y p1).
-    rewrite [X in X + _ + _]polyCB [X in _ + X * _ + _]polyCB.
-    rewrite [X in _ + _ + X * _]polyCB -reorg.
-    rewrite -2!parabolacE hornerD hornerN.
-    rewrite parabola_max subr_lt0.
-    apply: le_lt_trans (_ : ((swp + p_x p2) / 2%:R) < _).
-      apply parabola_maxP => //.
-   rewrite ltr_pmul2r; last by rewrite invr_gt0 ltr0Sn.
-   by rewrite ltr_add2l.
+  exists (p_y p1).
+  rewrite -parabola_diff_reorg hornerD hornerN subr_lt0.
+  by rewrite parabola_diff_min // p2ltp1.
 have tmp2 : 0 < parabola2 p2 swp - parabola2 p1 swp.
   rewrite subr_gt0 /parabola2 ltr_oppr opprK ltf_pinv ?posrE /=.
       rewrite ltr_pmul2l; last by rewrite ltr0Sn.
       by rewrite ltr_add2l ltr_oppr opprK.
     by rewrite mulr_gt0 // ?ltr0Sn ?subr_gt0.
-   by rewrite mulr_gt0 // ?ltr0Sn ?subr_gt0.
-have [r1 [r2 [root1 [root2 [outi [ini _]]]]]] := solve_snd_degreep tmp2 tmp.  
-exists r2.
-apply/andP; split.
-  rewrite /parabola' -hornerN -hornerD !parabolacE reorg.
-  rewrite -oppr_eq0 -hornerN 2!opprD opprB -mulNr opprB -mulNr opprB.
-  by rewrite -!polyCB root2.
-apply/orP; right.
+  by rewrite mulr_gt0 // ?ltr0Sn ?subr_gt0.
+have [r1 [r2 [r1r2 [root1 [root2 [outi [ini _]]]]]]] :=
+   solve_snd_degreep tmp2 tmp.
+exists r2 => _.
+split.
+  apply/eqP; rewrite eq_sym -subr_eq0.
+  by rewrite /parabola' -hornerN -hornerD parabola_diff_reorg root2.
+exists r1; exists (r2 + 1).
+split.
+  by rewrite r1r2 cpr_add ltr01.
+split.
+  move=> x xint.
+  rewrite -subr_lt0.
+  by rewrite /parabola' -hornerN -hornerD parabola_diff_reorg ini.
+move=> x /andP [xgtr2 _].
 rewrite -subr_gt0.
-rewrite /parabola' -hornerN -hornerD !parabolacE reorg.
-by rewrite -!polyCB outi // cpr_add ltr01; right.
+by rewrite /parabola' -hornerN -hornerD parabola_diff_reorg outi //; right.
 Qed.
-
-(* compute the intersection between parabolas with focals p1 and p2 and
-  common directrix a vertical line at abscissa swp. In general there
-  are two solutions.  TODO : explain which of the two solutions is picked. *)
-Definition par_inter (p1 p2 : R ^ 2) (swp : R) : R :=
-  let midy := (p_y p1 + p_y p2) / 2%:R in
-  if p_x p1 == p_x p2 then midy
-  else
-    let midx := (p_x p1 + p_x p2) / 2%:R in
-    let B := (p_y p1 - p_y p2) / (p_x p1 - p_x p2) in
-    let A := B * midy + midx in
-    let C := (B * (p_x p1 - swp) - (p_y p1)) *+ 2 in
-    let D := p_y p1 ^ 2 + (p_x p1) ^ 2 - 2%:R * A * (p_x p1 - swp) - swp ^ 2 in
-    let discr := (C ^ 2 - 4%:R * D) in
-    if p_x p1 <= p_x p2 then
-      (- C - sqrtr discr) / 2%:R
-    else (- C + sqrtr discr) / 2%:R.
-
-
-
-Lemma par_inter0 p1 p2 swp :
-  p_y p1 != p_y p2 ->
-  parabola' p1 swp (par_inter p1 p2 swp) =
-  parabola' p2 swp (par_inter p1 p2 swp).
-Proof.
-move=> ny.
-rewrite /par_inter.
-set midy := (p_y p1 + p_y p2) / 2%:R.
-have [/eqP p1p2 | p1np2] := boolP (p_x p1 == p_x p2).
-  rewrite /parabola' /parabola -p1p2 !(horner_exp, hornerE).
-  suff -> : (p_y p1 - midy) ^+ 2 = (p_y p2 - midy) ^+ 2 by [].
-  have mul2K (x : R)  : x = x * 2%:R / 2%:R by rewrite mulfK // pnatr_eq0.
-  rewrite /midy [X in (X - _) ^+ 2 = _]mul2K [X in _ = (X - _) ^+ _]mul2K.
-  rewrite -!mulrBl !mulr_natr !(mulr1, mulrS, mulr0n, addr0, addrA, opprD).
-  by rewrite addrK (addrAC _ _ (- _)) addrK -opprB mulNr sqrrN.
-case: ifP => p1lep2.
-  set midx := (p_x p1 + p_x p2) / 2%:R.
-  set B := (p_y p1 - p_y p2) / (p_x p1 - p_x p2).
-  set A := B * midy + midx.
-  set C := (B * (p_x p1 - swp) - (p_y p1)) *+ 2.
-  set D := p_y p1 ^ 2 + (p_x p1) ^ 2 - 2%:R * A * (p_x p1 - swp) - swp ^ 2.
-  set discr := (C ^ 2 - 4%:R * D).
-  rewrite /parabola' /parabola -polyCM !(horner_exp, hornerE).
-  apply/eqP; rewrite -subr_eq0 -!opprD !mulNr !opprK opprD opprK addrA.
-  rewrite (addrAC _ _ (- (_ / 2%:R))) 2!(mulrDl _ _ (2%:R ^-1)) opprD addrA.
-  rewrite (addrAC _ _ (- (swp / 2%:R))) addrN add0r -mulrBl.
-
-  remember (((p_y p2 + (C + Num.sqrt discr) / 2%:R)) ^+ 2) as V.
-set X := (X in (_ - X - _)).
-set Y := (Y in (_ - _ - Y)).
-
-  have -> : (2%:R : {poly R}) = 2%:R%:P.
-   
 
 Lemma parabola_compare_low (p1 p2 : R ^ 2) (swp : R) :
   p_x p1 < p_x p2 < swp ->
   exists i, forall y, y < i -> parabola' p2 swp y < parabola' p1 swp y.
-(* use function pick_sol from fortune.v *)
-Admitted.
+Proof.
+move=> /andP [p1p2 p2swp].
+have p1swp : 0 < swp - p_x p1 by rewrite subr_gt0; apply: lt_trans p2swp.
+move: (p2swp); rewrite -subr_gt0=> p2swp'.
+have dumb2 : 0 < (2%:R : R) by rewrite ltr0Sn.
+have diff_degp : 0 < parabola2 p1 swp - parabola2 p2 swp.
+  rewrite /parabola2 subr_gt0.
+  rewrite ltr_oppl opprK ltf_pinv ?posrE ?mulr_gt0 // ltr_pmul2l //.
+  by rewrite ltr_add2l ltr_oppl opprK.
+have tmp : exists x,
+  ((parabola0 p1 swp - parabola0 p2 swp)%:P +
+   (parabola1 p1 swp - parabola1 p2 swp)%:P * 'X +
+   (parabola2 p1 swp - parabola2 p2 swp)%:P * 'X ^+ 2).[x] < 0.
+  exists (p_y p2).
+  rewrite -parabola_diff_reorg hornerD hornerN subr_lt0.
+  by rewrite parabola_diff_min // p1p2.
+have [r1 [r2 [_ [_ [_ [outi  _]]]]]] := solve_snd_degreep diff_degp tmp.
+exists r1=> y yltr1; rewrite -subr_gt0 /parabola' -hornerN -hornerD.
+by rewrite parabola_diff_reorg outi //; left.
+Qed.
 
 Lemma first_bl_element (swp : R) (sites : seq (R ^ 2)) (e : R ^ 2) :
   p_x e < swp ->
