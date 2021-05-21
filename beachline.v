@@ -1,5 +1,5 @@
-Require Import String.
 From mathcomp Require Import all_ssreflect all_algebra all_field.
+From mathcomp Require Import all_real_closed.
 (* Require Import QArith. *)
 From Coq Require Extraction.
 
@@ -212,16 +212,18 @@ by rewrite maxEle big_max_ge_in ?inE ?eqxx.
 Qed.
 
 Lemma beachlineP pts s y :
-  [seq p <- pts | p_x p < s] != [::] ->
-  {p : R ^ 2 | (p \in [seq p <- pts | p_x p < s]) &&
+  {p : R ^ 2 |
+   ([seq p <- pts | p_x p < s] != [::]) ==>
+   ((p \in [seq p <- pts | p_x p < s]) &&
    (beachline pts s y ==
      (parabola (p_x p) (p_y p) s).[y]) &&
    all (fun w => (parabola (p_x w) (p_y w) s).[y] <=
                  (parabola (p_x p) (p_y p) s).[y])
-       [seq p <- pts | p_x p < s]}.
+       [seq p <- pts | p_x p < s])}.
 Proof.
 rewrite /beachline.
-case : [seq p0 <- pts | p_x p0 < s] => [ | q pts'] // _.
+case : [seq p0 <- pts | p_x p0 < s] => [ | q pts'] //.
+   by exists [ffun _ => 0].
 elim: pts' => [ | q' pts' [v /andP [/andP [vin /eqP vval] /= /andP[qlev Ih]]]].
   by exists q; rewrite inE big_nil !eqxx all_seq1 le_refl.
 rewrite big_cons vval.
@@ -376,7 +378,7 @@ Fixpoint discrete_beachline_aux (swp : R) (sites : seq (R ^ 2))
     (forall y : R, lower_bound <= y <= i1 ->
        beachline sites swp y = parabola' first_arc swp y) /\
     discrete_beachline_aux swp sites front_sites intersections i1 f1
-  | _, _ => False
+  | _, _ => Logic.False
   end.
 
 Definition discrete_beachline (swp : R) (sites : seq (R ^ 2))
@@ -638,3 +640,355 @@ rewrite /beachline /= ein => below_i'.
 exists (Order.min i i') => y; rewrite lt_minr=>/andP[] ylti ylti'.
 by rewrite big_cons below_i' // maxEle ltW // below_i.
 Qed.
+
+Lemma descartes_zero (p : {poly R}) :
+ (forall k, 0 <= p`_k) ->
+ (exists i, 0 < p`_i) ->
+ (forall y, 0 < y -> 0 < p.[y]) /\
+ (forall x y, 0 < x < y -> p.[x] <= p.[y]).
+Proof.
+move: (p : seq R) (polyseqK p)=> ps; move: p; elim: ps.
+  by move=> p pnil pos_coef [] i; rewrite nth_nil ltxx.
+move=> a q Ih p paq poss [wp Pwp].
+  have [/(has_nthP 0) [i _ Pi]| allzero] := boolP(has (fun x => 0 < x) q).
+  have poss' : forall k, 0 <= q`_k by move=> k; move: (poss k.+1).
+  have [posq incrq] := Ih _ erefl poss' (ex_intro _ i Pi).
+  split.
+    move=> y ygt0; rewrite -paq /= horner_cons ltr_paddr //.
+      by apply: (poss 0%N).
+    by rewrite mulr_gt0 // posq.
+  move=> x y /andP[xgt0 xlty].
+  rewrite -paq /= !horner_cons lter_add2.
+  have : (Poly q).[y] * x <= (Poly q).[y] * y.
+    by rewrite lter_pmul2l // ?posq // ?(lt_trans xgt0 xlty) ?ltW.
+  have : (Poly q).[x] * x <= (Poly q).[y] * x.
+    by rewrite lter_pmul2r // incrq // xgt0 xlty.
+  by apply: le_trans.
+have poss' : forall k, 0 <= q`_k by move=> k; exact: (poss k.+1).
+have qis0 : forall y, (Poly q).[y] = 0.
+  clear -allzero poss'.
+  move/hasPn: allzero => allzero.
+  elim: q allzero poss'=> [ | a q Ih] allzero poss.
+    by move=>y; rewrite horner0.
+  move=> y; rewrite /= horner_cons (_ : a = 0); last first.
+    move: (allzero a) (poss 0%N) => /=; rewrite inE eqxx /=.
+    by rewrite le_eqVlt=> /(_ isT) /negbTE ->; rewrite orbF=> /eqP <-.
+  rewrite addr0 Ih ?mul0r //.
+    by move=> c cin; apply: (allzero c); rewrite inE cin orbT.
+  by move=> k; apply: (poss k.+1).
+have wpis0 : wp = 0%N.
+  move: Pwp; case: wp=>[// | wp /= abs].
+  case/hasP: allzero; exists (q`_wp) => //.
+  have [/(nth_default 0) is0 | ] := boolP(size q <= wp)%N.
+    by move: abs; rewrite lt_neqAle is0 eqxx.
+   by rewrite -ltnNge=> /mem_nth.
+rewrite -paq /=; split.
+  by move=> y; rewrite horner_cons qis0 mul0r add0r; move: Pwp; rewrite wpis0.
+by move=> x y; rewrite !horner_cons !qis0  !mul0r !add0r lexx.
+Qed.
+
+Lemma descartes_one (p : {poly R}) (n : nat) :
+  (forall k, (k < n)%N -> p`_k <= 0) ->
+  (forall k, (n <= k)%N -> 0 <= p`_k) ->
+  (exists i, p`_i < 0) ->
+  (exists i, 0 < p`_i) ->
+  exists a, 0 < a /\ p.[a] = 0 /\
+      (forall y, 0 < y < a -> p.[y] < 0) /\
+      (forall y, a < y -> 0 < p.[y]).
+Proof.
+move=> h1 h2 h3 h4.
+suff [a [agt0 [aroot [neg [pos incr]]]]] : exists a, 0 < a /\ p.[a] = 0 /\
+         (forall y, 0 < y < a -> p.[y] < 0) /\
+         (forall y, a < y -> 0 < p.[y]) /\
+         (forall x y, a < x < y -> p.[x] <= p.[y]).
+  by exists a; split;[ | split;[ |split ]].
+move: (polyseq p) (esym (polyseqK p)) h1 h2 h3 h4 =>s; move: p n.
+elim: s=> [ | c0 q Ih] p n ->.
+  by move=> _ _ [] i; rewrite nth_nil ltxx.
+move=> negs poss [wn Pwn] [wp Pwp].
+have ngtwn : (wn < n)%N.
+  by rewrite ltnNge; apply/negP=>/poss; rewrite leNgt Pwn.
+have negs' : forall k, (k < n.-1)%N -> q`_k <= 0.
+  move=> k kn.
+  have kn' : (k.+1 < n)%N by rewrite -(ltn_predK ngtwn) ltnS.
+  by apply: (negs k.+1).
+have poss' : forall k, (n.-1 <= k)%N -> 0 <= q`_k.
+  move=> k nk.
+  have nk' : (n <= k.+1)%N by rewrite -(ltn_predK ngtwn) ltnS.
+  by apply: (poss k.+1).
+have wpgt0 : (0 < wp)%N.
+  have [wp0 |//] := posnP.
+  have /negs : (wp < n)%N by apply: leq_ltn_trans ngtwn; rewrite wp0.
+  by rewrite leNgt Pwp.
+have [/eqP constant0 | constantnot0] := boolP(c0 == 0).
+  rewrite constant0 /=.
+  have wngt0 : (0 < wn)%N.
+    by have [wn0 |//] := posnP; move: Pwn; rewrite wn0 constant0 ltxx.
+  have exn : exists i, q`_i < 0.
+    by exists wn.-1; move: Pwn; rewrite -(ltn_predK wngt0).
+  have exp : exists i, 0 < q`_i.
+    by exists wp.-1; move: Pwp; rewrite -(ltn_predK wpgt0).
+  have [a [agt0 [roota [sub0 [sup0 incr]]]]] :=
+     Ih (Poly q) n.-1 erefl negs' poss' exn exp.
+  exists a; split; [by [] | ].
+  split; [by rewrite horner_cons roota mul0r add0r |].
+  split.
+    move=> y /andP [ygt0 ylta]; rewrite horner_cons addr0.
+    by rewrite nmulr_rlt0 // sub0 // ygt0 ylta.
+  split.
+    move=> y ygta; rewrite horner_cons addr0.
+    by rewrite pmulr_rgt0 ?(lt_trans agt0 ygta) // sup0.
+  move=> x y /andP[xgta ygtx]; rewrite !horner_cons !addr0.
+  have : (Poly q).[y] * x <= (Poly q).[y] * y.
+    by rewrite lter_pmul2l // ?sup0 // ?(lt_trans xgta ygtx) ?ltW.
+  have : (Poly q).[x] * x <= (Poly q).[y] * x.
+    by rewrite lter_pmul2r // ?incr // ?xgta ?ygtx // (lt_trans agt0 xgta).
+  by apply: le_trans.
+have c0neg : c0 < 0.
+  have /negs : (0 < n)%N by apply: leq_ltn_trans ngtwn.
+  by rewrite le_eqVlt (negbTE constantnot0).
+have exp : exists w, 0 < q`_w.
+  by exists wp.-1; move: Pwp; rewrite -(ltn_predK wpgt0).
+have [/hasP [c1 c1in c1neg] | /hasPn allpos] := boolP (has (fun c => c < 0) q).
+  set wn' := index c1 q.
+  have exn : exists w, q`_w < 0.
+    by exists wn'; rewrite nth_index.
+  move: Ih=>Ih.
+  have [a [agt0 [roota [sub0 [sup0 incr]]]]] :=
+  Ih (Poly q) n.-1 erefl negs' poss' exn exp.
+  set d := (Poly q).[a + 1].
+  set a' := a + 1 - c0 / d.
+  have dgt0 : 0 < d by apply:sup0; rewrite cpr_add ltr01.
+  have cd0_gt0 : 0 < - (c0 / d).
+    by rewrite -mulNr divr_gt0 // oppr_gt0.
+  have qaged : d <= (Poly q).[a'].
+    by apply: incr; rewrite cpr_add ltr01 cpr_add.
+  have a'pos : 0 < (Poly (c0 :: q)).[a'].
+    rewrite /= horner_cons.
+    rewrite mulrDr -addrA ltr_paddr //; last first.
+      rewrite mulr_gt0 //; last by rewrite (lt_trans agt0) // cpr_add ltr01.
+      by apply: lt_le_trans qaged.
+    rewrite -ler_subl_addr sub0r (@le_trans _ _ (d * -(c0 / d))) //.
+    rewrite mulrN mulrC mulfVK //.
+      by move: dgt0; rewrite lt_neqAle eq_sym=> /andP[].
+    by rewrite ler_pmul2r.
+  have alta' : a < a'.
+    by rewrite /a' -addrA cpr_add addr_gt0.
+  have pa_lt0 : (Poly (c0 :: q)).[a] < 0.
+    by rewrite horner_cons roota mul0r add0r.
+    have signchange : (Poly (c0 :: q)).[a] <= 0 <= (Poly (c0 :: q)).[a'].
+    by rewrite !ltW.
+  have [r /andP[] rgea _ /rootP Pr] := poly_ivt (ltW alta') signchange.
+  have rgta : a < r.
+    move: rgea; rewrite le_eqVlt=> /orP[ |//].
+    by move/eqP=> ar; move: pa_lt0; rewrite -Pr ar !ltxx.
+  exists r; split.
+    by apply: lt_le_trans rgea.
+  split.
+    exact: Pr.
+  split.
+    move=> y /andP [ygt0 yltr].
+    have [ | ] := boolP (y <= a).
+      rewrite le_eqVlt=> /orP[/eqP -> // | ylta].
+      rewrite /= horner_cons.
+      by rewrite ltr_snsaddl // ?pmulr_llt0 ?sub0 // ?ygt0.
+    rewrite -ltNge=> ygta.
+    rewrite -Pr /= !horner_cons ltr_add2r.
+    rewrite (@le_lt_trans _ _ ((Poly q).[r] * y)) //.
+      by rewrite ler_pmul2r ?incr ?yltr ?ygta.
+    by rewrite ltr_pmul2l // sup0.
+  split.
+    move=> y ygtr; rewrite -Pr /= !horner_cons ltr_add2r.
+    rewrite (@le_lt_trans _ _ ((Poly q).[y] * r)) //.
+      by rewrite ler_pmul2r ?incr // ?rgta // (lt_trans agt0 rgta).
+    by rewrite ltr_pmul2l // sup0 // (lt_trans rgta ygtr).
+  move=> x y /andP[xgtr ygt] /=.
+  have xgta : a < x by apply: lt_trans xgtr.
+  have xgt0 : 0 < x by apply: lt_trans xgta.
+  rewrite !horner_cons ler_add2r (@le_trans _ _ ((Poly q).[y] * x)) //.
+    by rewrite ler_pmul2r // incr // xgta ygt.
+  by rewrite ler_pmul2l ?(ltW ygt) // sup0 // (lt_trans xgta).
+have allpos' : forall k, 0 <= (Poly q)`_k.
+  move=> k; have [kin | def] := boolP(k < size q)%N; last first.
+  by rewrite coef_Poly nth_default // leqNgt.
+  by rewrite coef_Poly leNgt; apply: allpos; rewrite mem_nth.
+have exp' : exists i, 0 < (Poly q)`_i.
+  by move: exp=> [w wP]; exists w; rewrite coef_Poly.
+have [sup0 incr] := descartes_zero allpos' exp'.
+set d := (Poly q).[1].
+set a' := 1 - c0 / d.
+have dgt0 : 0 < d by apply:sup0; rewrite ltr01.
+have cd0_gt0 : 0 < - (c0 / d).
+  by rewrite -mulNr divr_gt0 // oppr_gt0.
+have qaged : d <= (Poly q).[a'].
+  by apply: incr; rewrite ltr01 cpr_add.
+have a'pos : 0 < (Poly (c0 :: q)).[a'].
+  rewrite /= horner_cons.
+  rewrite mulrDr -addrA ltr_paddr //; last first.
+    by rewrite mulr_gt0 ?ltr01 //; apply: lt_le_trans qaged.
+  rewrite -ler_subl_addr sub0r (@le_trans _ _ (d * -(c0 / d))) //.
+  rewrite mulrN mulrC mulfVK //.
+    by move: dgt0; rewrite lt_neqAle eq_sym=> /andP[].
+  by rewrite ler_pmul2r.
+have a'gt0 : 0 < a' by rewrite addr_gt0 ?ltr01.
+have p0_lt0 : (Poly (c0 :: q)).[0] < 0 by rewrite horner_cons mulr0 add0r.
+have signchange : (Poly (c0 :: q)).[0] <= 0 <= (Poly (c0 :: q)).[a'].
+  by rewrite !ltW.
+have [r /andP[] rge0 _ /rootP Pr] := poly_ivt (ltW a'gt0) signchange.
+have rgt0 : 0 < r.
+  move: rge0; rewrite le_eqVlt=> /orP[ |//].
+  by move/eqP=> ris0; move: p0_lt0; rewrite -[X in _ < X]Pr -ris0 !ltxx.
+exists r; split=> //.
+split; first by exact: Pr.
+split.
+  move=> y /andP [ygt0 yltr].
+  rewrite -Pr /= !horner_cons ltr_add2r.
+  rewrite (@le_lt_trans _ _ ((Poly q).[r] * y)) //.
+    by rewrite ler_pmul2r ?incr ?yltr ?ygt0.
+  by rewrite ltr_pmul2l // sup0.
+split.
+  move=> y ygtr; rewrite -Pr /= !horner_cons ltr_add2r.
+  rewrite (@le_lt_trans _ _ ((Poly q).[y] * r)) //.
+    by rewrite ler_pmul2r ?incr // ?rgta // ?rgt0.
+  by rewrite ltr_pmul2l // sup0 ?(lt_trans rgt0 ygtr).
+move=> x y /andP[xgtr ygt] /=.
+have xgt0 : 0 < x by apply: lt_trans xgtr.
+rewrite !horner_cons ler_add2r (@le_trans _ _ ((Poly q).[y] * x)) //.
+  by rewrite ler_pmul2r // incr // xgt0 ygt.
+by rewrite ler_pmul2l ?(ltW ygt) // sup0 // (lt_trans xgt0).
+Qed.
+
+Definition pre_beachline_sites (pts : seq (R ^ 2)) (swp : R) : seq (R ^ 2) :=
+  let pts' := [seq p <- pts | p_x p < swp] in
+  if pts' == [::] then
+     [::]
+  else let roots := rootsR (intersect_poly pts swp) in
+  if roots is a :: tl then
+    map (fun x => proj1_sig (beachlineP pts swp x))
+      ((a - 1) :: map (fun p => (p.1 + p.2) / 2%:R) (zip roots tl) ++
+             [:: last a tl + 1])
+  else
+    [::].
+
+Fixpoint remove_head (T : eqType) (a : T) (s : seq T) : seq T :=
+  match s with
+  | b :: s' => if a == b then remove_head a s' else s
+  | _ => s
+  end.
+
+Lemma remove_headP (T : eqType) (a : T) s b tl :
+  remove_head a s = b :: tl -> a != b.
+Proof.
+elim: s b tl => [ | c tl' Ih] b tl //=.
+case: ifP=> [aisc | aisnc].
+  by apply: Ih.
+by move=> [] <- tl'tl; rewrite aisnc.
+Qed.
+
+Lemma const_map (T T' : Type) (a : T) (l l' : seq T') :
+  size l = size l' -> [seq a | _ <- l] =  [seq a | _ <- l'].
+Proof.
+by elim: l l' => [ | c l Ih] [ | c' l'] //= /eqP; rewrite eqSS=>/eqP/Ih ->.
+Qed.
+
+Lemma remove_headP2 (T : eqType) (a : T) s :
+  exists n, s = mkseq (fun _ => a) n ++ remove_head a s.
+Proof.
+elim: s => [ | b tl [n Ih]] /=.
+  by exists 0%N.
+case: ifP => [/eqP <- | anb].
+  exists n.+1=> /=; rewrite [in LHS]Ih /=.
+  by congr (_ :: _ ++ _); apply: const_map; rewrite !size_iota.
+by exists 0%N.
+Qed.
+
+Fixpoint unstutter (T : eqType) (s : seq T) : seq T :=
+  if s is a :: tl then a :: unstutter (remove_head a tl) else s.
+
+Lemma unstutterP1 (T : eqType) (s l1 l2 : seq T) a b :
+  unstutter s = l1 ++ a :: b :: l2 -> a != b.
+Proof.
+elim: l1 s a b l2 => [ | c l Ih] s a b l2 /=.
+  case: s => [ | a' s'] //=.
+  case rm : (remove_head a' s') => [ | b' tl] //= [] a'a b'b.
+  by move/remove_headP: rm; rewrite a'a b'b.
+case: s => [ | a' s'] //= [] _.
+by apply: Ih.
+Qed.
+
+Lemma remove_head_mkseq (T : eqType) (a : T) n l :
+  remove_head a (mkseq (fun=> a) n ++ l) = remove_head a l.
+Proof.
+elim: n => //= n Ih; rewrite eqxx -Ih; congr (_ _ (_ ++ _)); apply: const_map.
+by rewrite !size_iota.
+Qed.
+
+Lemma remove_head_is_seq0 (T : eqType) (a : T) l :
+  remove_head a l = [::] -> exists n, l = mkseq (fun => a) n.
+Proof.
+elim: l => [| a' l Ih] /=; first by exists 0%N.
+case: ifP=> [/eqP <- | //] /Ih [n Pn]; exists n.+1.
+by rewrite Pn /mkseq /=; congr (_ :: _); apply: const_map; rewrite !size_iota.
+Qed.
+
+Lemma unstutter_is_seq1 (T : eqType) (a : T) l :
+  unstutter l = [:: a] -> exists n, l = mkseq (fun => a) n.
+Proof.
+elim: l => [ | a' [ | b l] Ih] // [] -> {a'}.
+  by exists 1%N.
+rewrite [X in X = _ -> _](_ :_ = unstutter (remove_head a (b :: l)));
+   last by [].
+case rh : (remove_head a (b :: l)) => [ | a' l'] //.
+move/remove_head_is_seq0: rh=> [n ->] _; exists n.+1; rewrite /mkseq /=.
+by congr (_ :: _); apply: const_map; rewrite !size_iota.
+Qed.
+
+Lemma cons_mkseq (T : eqType) (a : T) n :
+  a :: mkseq (fun=> a) n = rcons (mkseq (fun=> a) n) a.
+Proof.
+elim: n => [ | n Ih] //=; rewrite /mkseq /=.
+rewrite [X in a :: a :: X = a :: rcons X _](_ : _ = mkseq (fun=> a) n).
+  by congr (_ :: _).
+by rewrite /mkseq; apply: const_map; rewrite !size_iota.
+Qed.
+
+Lemma unstutter_is_cons (T : eqType) (s l1 : seq T) a :
+  unstutter s = a :: l1 ->
+  exists n l2, s = a :: mkseq (fun=> a) n ++ l2 /\
+   l1 = unstutter l2.
+Proof.
+case: s => [ | c s] //= [] -> {c} uns.
+have [n Pn] := remove_headP2 a s.
+exists n; exists (remove_head a s); split; last by [].
+by rewrite -Pn.
+Qed.
+
+Lemma unstutterP2 (T : eqType) (s l1 l2 : seq T) a b :
+  unstutter s = l1 ++ a :: b :: l2 -> exists l3 l4, s = l3 ++ a :: b :: l4.
+Proof.
+elim: s l1 a b l2 => [ | c s Ih] l1 a b l2.
+  by case: l1.
+have [[ | n] Pn] := (remove_headP2 c s).
+  rewrite /= in Pn.
+  case: l1 => [ | c' l1]; last first.
+    rewrite /= => [[]] cc'.
+    rewrite -Pn => /Ih [l3 [l4 Pll]].
+    by exists (c :: l3); exists l4; rewrite Pll.
+  rewrite /= -Pn /= => [[]] ca.
+  move=> uns; move/unstutter_is_cons: (uns)=>[n' [l6 [Pll _]]].
+  rewrite ca; exists nil; exists (mkseq (fun=> b) n' ++ l6)=> /=.
+  by rewrite Pll.
+have shift : mkseq (fun=> c) n.+1 = rcons (mkseq (fun=>c) n) c.
+  rewrite -cons_mkseq /mkseq /=; congr (_ :: _); apply: const_map.
+  by rewrite !size_iota.
+suff -> : unstutter (c :: s) = unstutter s.
+  by move/Ih=> [l3 [l4 ->]]; exists (c::l3); exists l4.
+by rewrite Pn /= eqxx.
+Qed.
+
+Definition beachline_sites (pts : seq (R ^ 2)) (swp : R) :=
+  unstutter (pre_beachline_sites pts swp).
+
+
+
+  
