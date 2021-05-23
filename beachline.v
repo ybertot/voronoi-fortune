@@ -891,6 +891,24 @@ Proof.
 by elim: l l' => [ | c l Ih] [ | c' l'] //= /eqP; rewrite eqSS=>/eqP/Ih ->.
 Qed.
 
+Lemma remove_head0P (T : eqType) (a : T) s :
+  reflect (exists n, s = mkseq (fun=> a) n) (remove_head a s == [::]).
+Proof.
+have [it | notit] := boolP(_ == _).
+  apply: ReflectT.
+elim: s it => [ | a' s Ih /=]; first by exists 0%N.
+  case: ifP=> [/eqP <- | //] /Ih [n ->]; exists n.+1.
+  by rewrite /mkseq //=; congr (_ :: _); apply: const_map; rewrite !size_iota.
+apply: ReflectF.
+elim: s notit=> [// | b s Ih /=].
+case: ifP=> [/eqP <- | anb].
+  move/Ih=> abs [[// | n] Pn]; case: abs; exists n.
+  move: Pn; rewrite /mkseq /= => [[]] ->.
+  by apply: const_map; rewrite !size_iota.
+move=> _ [ [// | n]].
+by rewrite /mkseq /= => [[]] /eqP; rewrite eq_sym anb.
+Qed.
+
 Lemma remove_headP2 (T : eqType) (a : T) s :
   exists n, s = mkseq (fun _ => a) n ++ remove_head a s.
 Proof.
@@ -902,18 +920,11 @@ case: ifP => [/eqP <- | anb].
 by exists 0%N.
 Qed.
 
-Fixpoint unstutter (T : eqType) (s : seq T) : seq T :=
-  if s is a :: tl then a :: unstutter (remove_head a tl) else s.
-
-Lemma unstutterP1 (T : eqType) (s l1 l2 : seq T) a b :
-  unstutter s = l1 ++ a :: b :: l2 -> a != b.
+Lemma size_remove_head (T : eqType) (a : T) s :
+   (size (remove_head a s) <= size s)%N.
 Proof.
-elim: l1 s a b l2 => [ | c l Ih] s a b l2 /=.
-  case: s => [ | a' s'] //=.
-  case rm : (remove_head a' s') => [ | b' tl] //= [] a'a b'b.
-  by move/remove_headP: rm; rewrite a'a b'b.
-case: s => [ | a' s'] //= [] _.
-by apply: Ih.
+have [n Pn] := remove_headP2 a s.
+by rewrite [X in (_ <= size X)%N]Pn size_cat size_map size_iota leq_addl.
 Qed.
 
 Lemma remove_head_mkseq (T : eqType) (a : T) n l :
@@ -923,12 +934,126 @@ elim: n => //= n Ih; rewrite eqxx -Ih; congr (_ _ (_ ++ _)); apply: const_map.
 by rewrite !size_iota.
 Qed.
 
-Lemma remove_head_is_seq0 (T : eqType) (a : T) l :
-  remove_head a l = [::] -> exists n, l = mkseq (fun => a) n.
+Fixpoint unstutter (T : eqType) (s : seq T) : seq T :=
+  if s is a :: tl then a :: unstutter (remove_head a tl) else s.
+
+Lemma unstutter0 (T : eqType) (s : seq T) :
+  (unstutter s == [::]) = (s == [::]).
+Proof.  by case: s. Qed.
+
+Lemma cons_mkseq (T : eqType) (a : T) n :
+  a :: mkseq (fun=> a) n = rcons (mkseq (fun=> a) n) a.
 Proof.
-elim: l => [| a' l Ih] /=; first by exists 0%N.
-case: ifP=> [/eqP <- | //] /Ih [n Pn]; exists n.+1.
-by rewrite Pn /mkseq /=; congr (_ :: _); apply: const_map; rewrite !size_iota.
+elim: n => [ | n Ih] //=; rewrite /mkseq /=.
+rewrite [X in a :: a :: X = a :: rcons X _](_ : _ = mkseq (fun=> a) n).
+  by congr (_ :: _).
+by rewrite /mkseq; apply: const_map; rewrite !size_iota.
+Qed.
+
+Lemma unstutter1P (T : eqType) (s : seq T) a :
+  reflect (exists n, s = mkseq (fun=> a) n.+1) (unstutter s == [:: a]).
+Proof.
+have [it | notit] := boolP(_ == _).
+  apply: ReflectT.
+  elim: s it => [// | a' s Ih] /eqP /= [] -> /eqP.
+  rewrite unstutter0=> /remove_head0P [n ->]; exists n.
+  by rewrite /mkseq /=; congr (_ :: _); apply: const_map; rewrite !size_iota.
+apply: ReflectF.
+elim: s notit=> [_ [n //] | a' s Ih].
+move/eqP=> abs [n]; rewrite /mkseq /= => [[]] a'a sseq; case: abs.
+rewrite a'a /=; congr (_ :: _).
+have /eqP -> // : remove_head a s == [::].
+apply/remove_head0P.
+by exists n; rewrite sseq; apply: const_map; rewrite !size_iota.
+Qed.
+
+Lemma size_unstutter (T : eqType) (s : seq T) :
+  (size (unstutter s) <= size s)%N.
+Proof.
+move: {2} (size s) (leqnn (size s))=> sz; elim: sz s => [ | n Ih] s.
+  by rewrite leqn0 size_eq0=> /eqP ->.
+case: s=> [// | a s] /=; rewrite ltnS=> slen.
+have /Ih sur : (size (remove_head a s) <= n)%N.
+  apply: leq_trans slen; apply: size_remove_head.
+by rewrite (leq_ltn_trans sur) // ltnS; apply: size_remove_head.
+Qed.
+
+Lemma unstutterPi (T : eqType) (s : seq T) (def : T) (i : nat) :
+  (i < (size (unstutter s)).-1)%N ->
+  exists k,
+     (k < (size s).-1)%N /\
+     nth def (unstutter s) i = nth def s k /\
+     nth def (unstutter s) i.+1 = nth def s k.+1 /\
+     nth def (unstutter s) i <> nth def (unstutter s) i.+1.
+Proof.
+move: {2} (size s) (leqnn (size s))=> sz.
+elim: sz s i => [ | sz Ih] s i.
+  by rewrite leqn0 size_eq0=>/eqP ->.
+case: s => [// | a s] /=; rewrite ltnS=> sizele ci.
+have [n Pn] := remove_headP2 a s.
+have smk : size (mkseq (fun=>a) n) = n.
+  by rewrite size_map size_iota.
+case: i ci => [ | i] ci.
+  case rhq : (remove_head a s) => [ | b tl]; first by rewrite rhq in ci.
+  move/remove_headP: (rhq)=> anb.
+  exists n.
+  split.
+    by rewrite Pn size_cat smk -[X in (X <= _)%N]addn1 leq_add2l rhq.
+  split.
+    rewrite /= Pn rhq -cat_cons cons_mkseq nth_cat size_rcons smk.
+    by rewrite ltnSn nth_rcons smk ltnn eqxx.
+  split.
+    by rewrite /= Pn rhq nth_cat smk ltnn subnn.
+  by rewrite /=; apply/eqP.
+move: ci; rewrite -ltn_predRL=> ci.
+have srh : (size (remove_head a s) <= sz)%N.
+  by apply: leq_trans sizele; apply: size_remove_head.
+have [k [Pk1 [Pk2 [Pk3 Pk4]]]] := Ih _ _ srh ci.
+exists (n + k).+1=>/=.
+split.
+  move: (Pk1); rewrite ltn_predRL=>/ltn_predK sizeps.
+  by rewrite Pn size_cat smk -2!addnS -sizeps leq_add2l ltnS.
+split.
+  by rewrite Pk2 [in RHS]Pn nth_cat smk ltnNge leq_addr /= addKn.
+split=> //.
+by rewrite Pk3 [in RHS] Pn nth_cat smk ltnNge -addnS leq_addr addKn.
+Qed.
+
+Lemma unstutter_Pi' (T : eqType) (s : seq T) (def : T) i :
+  (i < (size s).-1)%N ->
+  nth def s i <> nth def s i.+1 ->
+  exists k, (k < (size (unstutter s)).-1)%N /\
+    nth def (unstutter s) k = nth def s i /\
+    nth def (unstutter s) k.+1 = nth def s i.+1.
+Proof.
+move: {2} (size s) (leqnn (size s))=> sz; elim: sz s i=> [ | n Ih] s i.
+  by rewrite leqn0 size_eq0=> /eqP ->.
+case: s=> [// | c s] /=.
+rewrite ltnS => slen.
+case: i=> /= [ | i].
+  case rhv: (remove_head c s) => [ | b tl] /=.
+    case: s slen rhv => [ | b tl] slen /= rhv //= _ cnb.
+    by move/eqP: cnb=> cnb; rewrite (negbTE cnb) in rhv.
+  move=> sizes fsts.
+  exists 0%N => /=; split;[ by [] | split;[by [] | ] ].
+  case: s rhv sizes fsts {slen}=> /= [// | b' tl'] rhv sizes /eqP fsts.
+  by rewrite (negbTE fsts) in rhv; move: rhv=> [] ->.
+case: s slen => [// | b s] /= slen.
+rewrite ltnS.
+move=> isize idiff.
+have [k [/= Pk1 [Pk2 Pk3]]] := Ih (b :: s) i slen isize idiff.
+have [/eqP -> | cneqb] := boolP(c == b).
+  by exists k.
+by exists k.+1.
+Qed.
+
+Lemma unstutterP1 (T : eqType) (s l1 l2 : seq T) a b :
+  unstutter s = l1 ++ a :: b :: l2 -> a != b.
+Proof.
+move=> cnd.
+have /(unstutterPi a) [k [_ [_ [_ ]]]]: (size l1 < (size (unstutter s)).-1)%N.
+  by rewrite cnd size_cat /= !addnS /= ltnS leq_addr.
+by rewrite cnd !nth_cat ltnn subnn /= ltnNge leqnSn subSnn /= =>/eqP.
 Qed.
 
 Lemma unstutter_is_seq1 (T : eqType) (a : T) l :
@@ -939,17 +1064,8 @@ elim: l => [ | a' [ | b l] Ih] // [] -> {a'}.
 rewrite [X in X = _ -> _](_ :_ = unstutter (remove_head a (b :: l)));
    last by [].
 case rh : (remove_head a (b :: l)) => [ | a' l'] //.
-move/remove_head_is_seq0: rh=> [n ->] _; exists n.+1; rewrite /mkseq /=.
+move/eqP/remove_head0P: rh=> [n ->] _; exists n.+1; rewrite /mkseq /=.
 by congr (_ :: _); apply: const_map; rewrite !size_iota.
-Qed.
-
-Lemma cons_mkseq (T : eqType) (a : T) n :
-  a :: mkseq (fun=> a) n = rcons (mkseq (fun=> a) n) a.
-Proof.
-elim: n => [ | n Ih] //=; rewrite /mkseq /=.
-rewrite [X in a :: a :: X = a :: rcons X _](_ : _ = mkseq (fun=> a) n).
-  by congr (_ :: _).
-by rewrite /mkseq; apply: const_map; rewrite !size_iota.
 Qed.
 
 Lemma unstutter_is_cons (T : eqType) (s l1 : seq T) a :
@@ -966,24 +1082,20 @@ Qed.
 Lemma unstutterP2 (T : eqType) (s l1 l2 : seq T) a b :
   unstutter s = l1 ++ a :: b :: l2 -> exists l3 l4, s = l3 ++ a :: b :: l4.
 Proof.
-elim: s l1 a b l2 => [ | c s Ih] l1 a b l2.
-  by case: l1.
-have [[ | n] Pn] := (remove_headP2 c s).
-  rewrite /= in Pn.
-  case: l1 => [ | c' l1]; last first.
-    rewrite /= => [[]] cc'.
-    rewrite -Pn => /Ih [l3 [l4 Pll]].
-    by exists (c :: l3); exists l4; rewrite Pll.
-  rewrite /= -Pn /= => [[]] ca.
-  move=> uns; move/unstutter_is_cons: (uns)=>[n' [l6 [Pll _]]].
-  rewrite ca; exists nil; exists (mkseq (fun=> b) n' ++ l6)=> /=.
-  by rewrite Pll.
-have shift : mkseq (fun=> c) n.+1 = rcons (mkseq (fun=>c) n) c.
-  rewrite -cons_mkseq /mkseq /=; congr (_ :: _); apply: const_map.
-  by rewrite !size_iota.
-suff -> : unstutter (c :: s) = unstutter s.
-  by move/Ih=> [l3 [l4 ->]]; exists (c::l3); exists l4.
-by rewrite Pn /= eqxx.
+move=> unstq.
+set i := size l1.
+have ilt : (i < (size (unstutter s)).-1)%N.
+  by rewrite unstq size_cat /= 2!addnS ltnS leq_addr.
+have [k [Pk1 [Pk2 [Pk3 Pk4]]]]:= unstutterPi a ilt.
+exists (take k s); exists (drop k.+2 s).
+  rewrite -[LHS](cat_take_drop k); congr (_ ++ _).
+rewrite (drop_nth a); last first.
+  by apply/(leq_trans Pk1)/leq_pred.
+congr (_ :: _).
+  by rewrite -Pk2 unstq nth_cat ltnn subnn.
+rewrite (drop_nth a); last by rewrite -ltn_predRL.
+congr (_ :: _); rewrite -Pk3 unstq nth_cat.
+by rewrite ltnNge leqnSn /= -/i -addn1 addKn.
 Qed.
 
 Definition beachline_sites (pts : seq (R ^ 2)) (swp : R) :=
