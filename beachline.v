@@ -33,16 +33,28 @@ have [/eqP xxs | nxxs] := boolP (_ == _);
 Qed.
 
 Definition parabola (px py s : R) : {poly R} :=
-  ((s + px) /2 %:R)%:P -
+  ((s + px) / 2%:R)%:P -
    ((py%:P - 'X) ^+ 2) * ((2 %:R * (s - px)) ^-1)%:P.
 
+Definition pbl (px py s : R) : {poly R} :=
+  (s ^+ 2 - px ^ 2)%:P - ((py%:P - 'X) ^+ 2).
+
 Definition parabola' p s y := (parabola (p_x p) (p_y p) s).[y].
+
+Definition pbl' p s y := (pbl (p_x p) (p_y p) s).[y].
+
+Definition pbl0 p s :=
+    s ^+ 2 - p_x p ^+ 2 - p_y p ^+ 2.
 
 Definition parabola0 p s :=
   (s + p_x p) / 2%:R - p_y  p ^+ 2 / (2%:R * (s - p_x p)).
 
+Definition pbl1 (p : R ^ 2) (s : R) :=  2%:R * p_y p.
+
 Definition parabola1 p s :=
   (p_y p) / (s - p_x p).
+
+Definition pbl2 (p : R ^ 2) (s : R) : R := -1.
 
 Definition parabola2 p s :=
   - (2%:R * (s - p_x p)) ^-1.
@@ -58,6 +70,16 @@ rewrite 2!opprD opprK 2!addrA -polyCB; congr (_ + _ + _).
 rewrite -mulrnAl mulrAC; congr (_ * _).
   by rewrite -polyCMn -polyCM -mulr_natl -mulf_div mulfV ?mul1r // pnatr_eq0.
 by rewrite mulrC -mulNr -polyCN.
+Qed.
+
+Lemma pblcE p s :
+  pbl (p_x p) (p_y p) s =
+  (pbl0 p s)%:P + (pbl1 p s)%:P * 'X + (pbl2 p s)%:P * 'X^2.
+Proof.
+rewrite /pbl sqrrB -polyC_exp 2!opprD opprK 2!addrA -polyCB.
+congr (_ + _ + _).
+  by rewrite -mulrnAl; congr (_ * _); rewrite -polyCMn -mulr_natl.
+by rewrite /pbl2 polyCN polyC1 mulNr mul1r.
 Qed.
 
 Lemma parabolaE px py s y :
